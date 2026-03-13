@@ -71,7 +71,7 @@ api.activate_listener_loop(
 ```
 ## API Reference
 All methods are available with the `TimberbornAPI` class.
-Use `TimberbornAPI.methids()` to list all public methods, or use `docstrings` (.__doc__) on a method to access a description in detail on what it does.
+Use `TimberbornAPI.methods()` to list all public methods, or use __docstrings__ (.\_\_doc\_\_) on a method to access a description in detail on what it does.
 ### Methods
 * get_lever(name: str)
 * set_lever(name: str, state: bool)
@@ -84,9 +84,9 @@ Use `TimberbornAPI.methids()` to list all public methods, or use `docstrings` (.
 * activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)
 
 ## Configuration
-* `base_url` (str): URL of your Timberborn API server (default: `http//localhost:8080/api`).
-* cache_ttl (float): Cache `Time To Live` in seconds (default: 8). Used for get_lever/get_adaptor
-* on_any_change (callable): Optional global callback when any adaptor changes
+* *base_url* (str): URL of your Timberborn API server (default: `http//localhost:8080/api`).
+* *cache_ttl* (float): Cache _Time To Live_ in seconds (default: 8). Used for get_lever/get_adaptor
+* *on_any_change* (callable): Optional global callback when any adaptor changes
 
 ## Contibuting
 Contributions are welcome!
