@@ -88,7 +88,7 @@ If you have any other questions to how this works or how it can be used,
 please refer to the [examples]("https://www.google.com/search?q=not+yet+published").
 
 ## Configuration
-* `base_url` (str): URL of your Timberborn API server (default: `http//localhost:8080/api`).
+* `base_url` (str): URL of your Timberborn API server (default: `http//localhost:8080/api`)
 * cache_ttl (float): Cache `Time To Live` in seconds (default: 8). Used for get_lever/get_adaptor
 * on_any_change (callable): Optional global callback when any adaptor changes
 
