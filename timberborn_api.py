@@ -148,11 +148,8 @@ class TimberbornAPI:
         elif r.status_code != 200:
             raise RuntimeError(f"Failed to set lever '{name}' (HTTP {r.status_code})")
 
-        try:
-            lever = r.json()
-        except ValueError:
-            raise RuntimeError(f"Unexpected response when setting lever '{name}': {r.text!r}")
-
+        # Update cached lever manually
+        lever["state"] = state
         return self._store(self._lever_cache, lever)
 
     def set_color(self, name, color_hex: str):
