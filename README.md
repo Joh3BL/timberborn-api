@@ -11,16 +11,22 @@ Provides easy control over levers, reading adaptors, and listening for state cha
 - Fast caching with configurable TTL.
 - Set lever colors using hex codes.
 
-## Installation
+## Installation / Usage
 
-You can install via `pip` (if you package it later) or clone the repo:
+### Install from github
+
+```bash
+pip install git+https://github.com/Joh3BL/timberborn-api.git
+```
+
+### Or clone the repository
 
 ```bash
 git clone https://github.com/Joh3BL/timberborn-api.git
 cd timberborn-api
 ```
 
-Then import it into your project
+### Then import it into your project
 
 ```python
 from timberborn_api import TimberbornAPI
