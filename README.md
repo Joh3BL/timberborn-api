@@ -36,6 +36,18 @@ from timberborn_api import TimberbornAPI
 
 ## Usage
 
+### Preparations
+
+1. When launching the game, you need to click on an HTTP Lever or Adapter,
+   and turn on the API. This will establish the connection
+2. Make sure that the port for levers is 8080 (`http://localhost:8080`),
+   if it's not, initialize api with base_url as the proper address.
+3. If you are using adapter listeners, turn on the two checkboxes for posting
+   when the adapter turns on and off. This will then use the Flask server, and call your code.
+     You also need to verify that the port for the adapter's is 8081, if it's not,
+   initialize api with adapter_listener_port as the proper code.
+4. If you plan on contributing, you can use a main.py file, as the git won't upload your test code.
+
 ### Basic Example
 
 ```python
@@ -52,7 +64,7 @@ print(lever['state'])
 # True as long as lever exists in timberborn
 
 # Set a lever color
-api.set_color("Lever 1", "fffff") # Sets to white using hex
+api.set_color("Lever 1", "ffffff") # Sets to white using hex
 
 # List all levers
 print(api.list_levers())
@@ -70,25 +82,26 @@ print(api.list_adapters())
 ```python
 # Register a lever listener
 def my_listener(lever_name, current_state, prev_state):
-    print(f"{name} changed from {prev_state} to {current_state}")
+    print(f"{lever_name} changed from {prev_state} to {current_state}")
 
 api.register_lever_listener("Lever 1", my_listener)
 
 # Manually check for changes
 api.check_listeners()
 
-# Or activate automatic loop for (in this case) 10 ticks.
-api.activate_listener_loop(
+# Or activate automatic loop for (in this case) 10 ticks. (Only for lever listeners)
+api.activate_lever_listener_loop(
     ms_per_tick=2000, 
     exit_condition=lambda ticks: ticks > 10
     )
 
-# Or register an adaptor listener running on Flask server:
-def adapter_listener(adaptor_name, current_state, prev_state):
-    print(f"{name} changed from {prev_state} to {current_state}")
+# Register an adapter listener running on Flask server:
+def adapter_listener(adapter_name, current_state, prev_state):
+    print(f"{adapter_name} changed from {prev_state} to {current_state}")
 
 api.register_adapter_listener("Adapter 1", adapter_listener)
-# (Runs automatically from beginning)
+# The adapter listener runs whenever Timberborn sends adapter changes,
+# turn on the checkboxes in the adapter window
 ```
 
 ### Logic Gates
@@ -102,13 +115,13 @@ from timberborn_api import TimberbornAPI, L, A
 api = TimberbornAPI()
 
 # Turns off lever 1 when adapter 1 is off
-def turn_of_lever_1(name, current_state, prev_state):
+def turn_off_lever_1(name, current_state, prev_state):
     api.set_lever(
-        "lever 1", 
-        api.and_("adapter 1", L("lever 1"))
+        "Lever 1", 
+        api.and_("Adapter 1", L("Lever 1"))
         )
 
-api.register_adapter_listener("adapter 1", turn_of_lever_1)
+api.register_adapter_listener("adapter 1", turn_off_lever_1)
 
 #TODO: Add manual check of adapter listener to initialize!
 
@@ -118,7 +131,7 @@ print(api.or_(*api.not_( # Reverts all inputs, simulates NOR gate
     )))
 ```
 
-As not\_ returns a list whenever you have multiple arguments, you can use a not\_ gate to simulate reverse gates, like NAND and NOR. Remember to use **\***api.not\_ so that the list gets unpacked into *\*args*.
+As not\_ returns a list whenever you have multiple arguments, you can use a not\_ gate to simulate reverse gates, like NAND and NOR. Remember to use **\***api.not\_ so that the list gets unpacked into *\*args*. not\_ returns just a boolean when only 1 value is given.
 
 ## API Reference
 
@@ -136,11 +149,11 @@ Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** 
 - `register_lever_listener(name: str, func: callable)`
 - `register_adapter_listener(name: str, func: callable)`
 - `check_lever_listeners()`
-- `activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
-- `not_(\*args)`
-- `and_(\*args)`
-- `or_(\*args)`
-- `xor_(\*args)`
+- `activate_lever_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
+- `not_(*args)`
+- `and_(*args)`
+- `or_(*args)`
+- `xor_(*args)`
 
 For the logic gates, you need to import the wrappers, L(), A()
 
@@ -151,9 +164,9 @@ please refer to the [examples](https://github.com/Joh3BL/timberborn-api/tree/mai
 
 ## Configuration
 
-api = TimberbornAPI() arguments:
+api = `TimberbornAPI()` arguments:
 
-- *base_url* (str): URL of your Timberborn API server (default: `http//localhost:8080/api`)
+- *base_url* (str): URL of your Timberborn API server (default: `http://localhost:8080/api`)
 - *adapter_listener_port* (str): Port for adapter calls (default: `8081`)
 - *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adapter
 - *on_any_change* (callable): Optional global callback when any adapter changes
