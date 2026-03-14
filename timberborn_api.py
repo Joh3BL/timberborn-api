@@ -119,27 +119,40 @@ class TimberbornAPI:
 
         return result
 
-    def set_lever(self, name, state: bool):
+    def set_lever(self, name: str, state: bool):
         """
-        Set a lever's state if it differs from the current cached state.
-
+        Set a lever's state via the Timberborn API.
+    
         Args:
             name (str): Name of the lever (e.g., "lever 1").
-            state (bool): Desired lever state.
-
+            state (bool): Desired lever state (True = on, False = off).
+    
         Returns:
             dict: Updated lever object.
+    
+        Raises:
+            RuntimeError: If the lever does not exist or the request fails.
         """
         lever = self.get_lever(name)
         if lever.get("state") == state:
-            return lever
-
+            return lever  # Already in desired state
+    
         name_enc = self.encode_name(name)
-        r = requests.post(
-            f"{self.base_url}/levers/{name_enc}",
-            json={"state": state}
-        )
-        lever = r.json()
+        endpoint = "switch-on" if state else "switch-off"
+        url = f"{self.base_url}/{endpoint}/{name_enc}"
+    
+        r = requests.post(url)
+    
+        if r.status_code == 404:
+            raise RuntimeError(f"Lever '{name}' does not exist on the server.")
+        elif r.status_code != 200:
+            raise RuntimeError(f"Failed to set lever '{name}' (HTTP {r.status_code})")
+    
+        try:
+            lever = r.json()
+        except ValueError:
+            raise RuntimeError(f"Unexpected response when setting lever '{name}': {r.text!r}")
+    
         return self._store(self._lever_cache, lever)
 
     def set_color(self, name, color_hex: str):
@@ -201,7 +214,6 @@ class TimberbornAPI:
                 }
         """
         r = requests.get(f"{self.base_url}/adapters")
-        print(r.status_code, repr(r.text))  # Use repr to see empty strings clearly
         data = r.json()
 
         now = time.monotonic()
