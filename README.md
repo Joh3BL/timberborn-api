@@ -66,10 +66,11 @@ print(api.list_adapters())
 ### Listeners
 
 ```python
-def my_listener(name, current_state, prev_state):
+# Register a lever listener
+def my_listener(lever_name, current_state, prev_state):
     print(f"{name} changed from {prev_state} to {current_state}")
 
-api.register_listener("Adapter 1", my_listener)
+api.register_lever_listener("Lever 1", my_listener)
 
 # Manually check for changes
 api.check_listeners()
@@ -79,6 +80,13 @@ api.activate_listener_loop(
     ms_per_tick=2000, 
     exit_condition=lambda ticks: ticks > 10
     )
+
+# Or register an adaptor listener running on Flask server:
+def adapter_listener(adaptor_name, current_state, prev_state):
+    print(f"{name} changed from {prev_state} to {current_state}")
+
+api.register_adapter_listener("Adapter 1", adapter_listener)
+# (Runs automatically from beginning)
 ```
 
 ### Logic Gates
@@ -100,8 +108,7 @@ def turn_of_lever_1(name, current_state, prev_state):
 
 api.register_listener("adapter 1", turn_of_lever_1)
 
-# Manually check if adapter 1 is off
-api.check_listeners()
+#TODO: Add manual check of adapter listener!
 
 # Check NOR for adapter 2 and lever 2
 print(api.or_(*api.not_( # Reverts all inputs, simulates NOR gate
@@ -124,13 +131,16 @@ Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** 
 - `list_levers()`
 - `get_adapter(name: str)`
 - `list_adapters()`
-- `register_listener(name: str, func: callable)`
-- `check_listeners()`
+- `register_lever_listener(name: str, func: callable)`
+- `register_adapter_listener(name: str, func: callable)`
+- `check_lever_listeners()`
 - `activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
 - `not_(\*args)`
 - `and_(\*args)`
 - `or_(\*args)`
 - `xor_(\*args)`
+
+For the logic gates, you need to import the wrappers, L(), A()
 
 ### Examples
 
@@ -139,7 +149,10 @@ please refer to the [examples](https://github.com/Joh3BL/timberborn-api/tree/mai
 
 ## Configuration
 
+api = TimberbornAPI() arguments:
+
 - *base_url* (str): URL of your Timberborn API server (default: `http//localhost:8080/api`)
+- *adapter_listener_port* (str): Port for adapter calls (default: `8081`)
 - *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adapter
 - *on_any_change* (callable): Optional global callback when any adapter changes
 
