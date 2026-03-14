@@ -108,9 +108,9 @@ def turn_of_lever_1(name, current_state, prev_state):
         api.and_("adapter 1", L("lever 1"))
         )
 
-api.register_listener("adapter 1", turn_of_lever_1)
+api.register_adapter_listener("adapter 1", turn_of_lever_1)
 
-#TODO: Add manual check of adapter listener!
+#TODO: Add manual check of adapter listener to initialize!
 
 # Check NOR for adapter 2 and lever 2
 print(api.or_(*api.not_( # Reverts all inputs, simulates NOR gate
