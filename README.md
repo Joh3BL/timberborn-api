@@ -114,23 +114,23 @@ As not\_ returns a list whenever you have multiple arguments, you can use a not\
 ## API Reference
 
 All methods are available with the `TimberbornAPI` class.
-Use `TimberbornAPI.methods()` to list all public methods, or use __docstrings__ (.\_\_doc\_\_) on a method to access a description in detail on what it does.
+Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** *(.\_\_doc\_\_)* on a method to access a description in detail on what it does.
 
 ### Methods
 
-- get_lever(name: str)
-- set_lever(name: str, state: bool)
-- set_color(name: str, color_hex)
-- list_levers()
-- get_adaptor(name: str)
-- list_adaptors()
-- register_listener(name: str, func: callable)
-- check_listeners()
-- activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)
-- not_(*args)
-- and_(*args)
-- or_(*args)
-- xor_(*args)
+- `get_lever(name: str)`
+- `set_lever(name: str, state: bool)`
+- `set_color(name: str, color_hex)`
+- `list_levers()`
+- `get_adaptor(name: str)`
+- `list_adaptors()`
+- `register_listener(name: str, func: callable)`
+- `check_listeners()`
+- `activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
+- `not_(\*args)`
+- `and_(\*args)`
+- `or_(\*args)`
+- `xor_(\*args)`
 
 ### Examples
 

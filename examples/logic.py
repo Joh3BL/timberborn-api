@@ -1,5 +1,7 @@
 # Logic gate examples.
 # Can be used with listeners to create logic gates, or just for checking conditions in your code.
+
+# Make sure to import L and A as Lever and Adaptor wrappers
 from timberborn_api import TimberbornAPI, L, A
 
 api = TimberbornAPI()
