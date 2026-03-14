@@ -1,13 +1,13 @@
 # Timberborn API
 
 Python client for the [Timberborn](https://store.steampowered.com/app/1284200/Timberborn/) HTTP API.  
-Provides easy control over levers, reading adaptors, and listening for state changes with caching for performance.
+Provides easy control over levers, reading adapters, and listening for state changes with caching for performance.
 
 ## Features
 
 - Control levers: get and set their state.
-- Read adaptors: fetch current adaptor states.
-- Listener system: trigger callbacks on adaptor state changes.
+- Read adapters: fetch current adapter states.
+- Listener system: trigger callbacks on adapter state changes.
 - Fast caching with configurable TTL.
 - Set lever colors using hex codes.
 
@@ -55,12 +55,12 @@ api.set_color("Lever 1", "fffff") # Sets to white using hex
 # List all levers
 print(api.list_levers())
 
-# Get adaptor state
-adaptor = api.get_adaptor("Adaptor 1")
-print(adaptor['state'])
+# Get adapter state
+adapter = api.get_adapter("Adaptor 1")
+print(adapter['state'])
 
-# List all adaptors
-print(api.list_adaptors())
+# List all adapters
+print(api.list_adapters())
 ```
 
 ### Listeners
@@ -91,21 +91,21 @@ from timberborn_api import TimberbornAPI, L, A
 
 api = TimberbornAPI()
 
-# Turns off lever 1 when adaptor 1 is off
+# Turns off lever 1 when adapter 1 is off
 def turn_of_lever_1(name, current_state, prev_state):
     api.set_lever(
         "lever 1", 
-        api.and_("adaptor 1", L("lever 1"))
+        api.and_("adapter 1", L("lever 1"))
         )
 
-api.register_listener("adaptor 1", turn_of_lever_1)
+api.register_listener("adapter 1", turn_of_lever_1)
 
-# Manually check if adaptor 1 is off
+# Manually check if adapter 1 is off
 api.check_listeners()
 
-# Check NOR for adaptor 2 and lever 2
+# Check NOR for adapter 2 and lever 2
 print(api.or_(*api.not_( # Reverts all inputs, simulates NOR gate
-    A("adaptor 2"), L("lever 2")
+    A("adapter 2"), L("lever 2")
     )))
 ```
 
@@ -122,8 +122,8 @@ Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** 
 - `set_lever(name: str, state: bool)`
 - `set_color(name: str, color_hex)`
 - `list_levers()`
-- `get_adaptor(name: str)`
-- `list_adaptors()`
+- `get_adapter(name: str)`
+- `list_adapters()`
 - `register_listener(name: str, func: callable)`
 - `check_listeners()`
 - `activate_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
@@ -140,8 +140,8 @@ please refer to the [examples](https://github.com/Joh3BL/timberborn-api/tree/mai
 ## Configuration
 
 - *base_url* (str): URL of your Timberborn API server (default: `http//localhost:8080/api`)
-- *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adaptor
-- *on_any_change* (callable): Optional global callback when any adaptor changes
+- *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adapter
+- *on_any_change* (callable): Optional global callback when any adapter changes
 
 ## Contibuting
 

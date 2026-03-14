@@ -13,7 +13,7 @@ class TimberbornAPI:
             base_url (str) (defaults to http://localhost:8080/api): Base URL for the Timberborn API.
             cache_ttl (float) (defaults to 8): Time-to-live for cached items in seconds.
             on_any_change (func): Called like a listener whenever any value has changed, before all other listeners.
-                Called as (adaptor_name, current_state, prev_state). Can be used to log changes.
+                Called as (adapter_name, current_state, prev_state). Can be used to log changes.
                 If it is None, it won't call anything.
         """
         self.base_url = base_url.rstrip("/")
@@ -21,7 +21,7 @@ class TimberbornAPI:
         self.on_any_change = on_any_change
 
         self._lever_cache = {}
-        self._adaptor_cache = {}
+        self._adapter_cache = {}
         self._listeners = {}
 
     # Helper to provide available methods
@@ -40,7 +40,7 @@ class TimberbornAPI:
         URL-encode a name for HTTP requests.
 
         Args:
-            name (str): The lever or adaptor name.
+            name (str): The lever or adapter name.
 
         Returns:
             str: URL-encoded name.
@@ -160,56 +160,57 @@ class TimberbornAPI:
         return r.status_code == 200
 
     # Adaptor methods
-    def get_adaptor(self, name):
+    def get_adapter(self, name):
         """
-        Get an adaptor by name, using cached data if available and recent.
+        Get an adapter by name, using cached data if available and recent.
 
         Args:
-            name (str): Name of the adaptor (e.g., "adaptor 1").
+            name (str): Name of the adapter (e.g., "adapter 1").
 
         Returns:
             dict: Adaptor object, cached copy is used if TTL has not expired.
                 Example:
                 {
-                    "name": "adaptor 1",
+                    "name": "adapter 1",
                     "state": True,
                     "_ts": 1710234512.483
                 }
         """
         name_enc = self.encode_name(name)
-        adaptor = self._adaptor_cache.get(name)
+        adapter = self._adapter_cache.get(name)
 
-        if adaptor and self._is_valid(adaptor):
-            return adaptor
+        if adapter and self._is_valid(adapter):
+            return adapter
 
-        r = requests.get(f"{self.base_url}/adaptors/{name_enc}")
-        adaptor = r.json()
-        return self._store(self._adaptor_cache, adaptor)
+        r = requests.get(f"{self.base_url}/adapters/{name_enc}")
+        adapter = r.json()
+        return self._store(self._adapter_cache, adapter)
 
-    def list_adaptors(self):
+    def list_adapters(self):
         """
-        Fetch the full list of adaptors from the API as a dict.
+        Fetch the full list of adapters from the API as a dict.
 
         This always makes an HTTP request and refreshes the internal cache.
 
         Returns:
-            dict: Dictionary of adaptor objects, each like:
+            dict: Dictionary of adapter objects, each like:
                 {
-                    # Template: [adaptor name]: 'state'
-                    "adaptor 1": True,
-                    "adaptor 2": False
+                    # Template: [adapter name]: 'state'
+                    "adapter 1": True,
+                    "adapter 2": False
                 }
         """
-        r = requests.get(f"{self.base_url}/adaptors")
+        r = requests.get(f"{self.base_url}/adapters")
+        print(r.status_code, repr(r.text))  # Use repr to see empty strings clearly
         data = r.json()
 
         now = time.monotonic()
         result = {}
 
-        for adaptor in data:
-            adaptor["_ts"] = now
-            self._adaptor_cache[adaptor["name"]] = adaptor
-            result[adaptor["name"]] = adaptor["state"]
+        for adapter in data:
+            adapter["_ts"] = now
+            self._adapter_cache[adapter["name"]] = adapter
+            result[adapter["name"]] = adapter["state"]
 
         return result
 
@@ -217,12 +218,12 @@ class TimberbornAPI:
     def register_listener(self, name, func):
         """
         Registers a function as a listener. 
-        Function will be called as func(adaptor_name: str, current_state: bool, prev_state: bool)
-        whenever the state of the adaptor it's registered to changes
+        Function will be called as func(adapter_name: str, current_state: bool, prev_state: bool)
+        whenever the state of the adapter it's registered to changes
 
         Args:
-            name: (str): Name of the adaptor to listen to
-            func: (function): Function to call whenever the state of the adaptor changes
+            name: (str): Name of the adapter to listen to
+            func: (function): Function to call whenever the state of the adapter changes
                 
         Example:
             api = TimberbornAPI()
@@ -235,10 +236,10 @@ class TimberbornAPI:
         
         Notes:
             - Listeners are only triggered by changes detected in check_listeners(), which must be called
-            - Listeners are called in the order they were registered for a given adaptor.
-            - You can call register_listener multiple times for the same adaptor to register multiple functions, 
+            - Listeners are called in the order they were registered for a given adapter.
+            - You can call register_listener multiple times for the same adapter to register multiple functions, 
               and they will all be called when the state changes.
-            - If the adaptor's state changes multiple times between calls to check_listeners(),
+            - If the adapter's state changes multiple times between calls to check_listeners(),
               the listener functions won't be called if the final state is the same as the initial state.
             - prev_state will be None for the first call to the listener, as prev_state is then unknown. 
         """
@@ -250,21 +251,21 @@ class TimberbornAPI:
 
     def check_listeners(self):
         """
-        Checks through all listener adaptors and checks if their value has changed.
+        Checks through all listener adapters and checks if their value has changed.
         If it has changed, calls all functions in order registered.
 
         Notes:
-            - Always updates cache, calls .list_adaptors() for new data. 
+            - Always updates cache, calls .list_adapters() for new data. 
         """
         if not self._listeners:
             return
 
-        data = self.list_adaptors()
+        data = self.list_adapters()
 
-        for adaptor_name, info_dict in self._listeners.items():
+        for adapter_name, info_dict in self._listeners.items():
             prev_state = info_dict['prev_state']
             functions = info_dict['funcs']
-            current_state = data.get(adaptor_name)
+            current_state = data.get(adapter_name)
 
             if current_state is None:
                 continue
@@ -273,12 +274,12 @@ class TimberbornAPI:
                 continue
             
             if self.on_any_change is not None:
-                self.on_any_change(adaptor_name, current_state, prev_state)
+                self.on_any_change(adapter_name, current_state, prev_state)
 
             for func in functions:
-                func(adaptor_name, current_state, prev_state)
+                func(adapter_name, current_state, prev_state)
 
-            self._listeners[adaptor_name]['prev_state'] = current_state
+            self._listeners[adapter_name]['prev_state'] = current_state
     
     def activate_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
@@ -325,17 +326,17 @@ class TimberbornAPI:
     def _turn_to_bool(self, arg: ConditionItem) -> bool:
         """
         Returns ready booleans as themselves.  
-        By default, interprets strings as adaptor names,  
+        By default, interprets strings as adapter names,  
         or gets the state of a wrapped Lever or Adaptor name.
         """
         if isinstance(arg, bool):
             return arg
         elif isinstance(arg, str):
-            return self.get_adaptor(arg)['state']
+            return self.get_adapter(arg)['state']
         elif isinstance(arg, Lever):
             return self.get_lever(arg.name)['state']
         elif isinstance(arg, Adaptor):
-            return self.get_adaptor(arg.name)['state']
+            return self.get_adapter(arg.name)['state']
         else:
             raise TypeError(f"Unknown condition type {arg}")
 
@@ -346,8 +347,8 @@ class TimberbornAPI:
         Args:
             Some ConditionItem(s):
                 Bool, 
-                string that is an adaptor name
-                A() wrapper (adaptor)
+                string that is an adapter name
+                A() wrapper (adapter)
                 L() wrapper (lever)
 
         Returns:
@@ -366,8 +367,8 @@ class TimberbornAPI:
         Args:
             Some ConditionItem(s):
                 Bool, 
-                string that is an adaptor name
-                A() wrapper (adaptor)
+                string that is an adapter name
+                A() wrapper (adapter)
                 L() wrapper (lever)
         """
         results = [self._turn_to_bool(arg) for arg in args]
@@ -380,8 +381,8 @@ class TimberbornAPI:
         Args:
             Some ConditionItem(s):
                 Bool, 
-                string that is an adaptor name
-                A() wrapper (adaptor)
+                string that is an adapter name
+                A() wrapper (adapter)
                 L() wrapper (lever)
         """
         results = [self._turn_to_bool(arg) for arg in args]
@@ -395,8 +396,8 @@ class TimberbornAPI:
         Args:
             Some ConditionItem(s):
                 Bool, 
-                string that is an adaptor name
-                A() wrapper (adaptor)
+                string that is an adapter name
+                A() wrapper (adapter)
                 L() wrapper (lever)
         """
         results = [self._turn_to_bool(arg) for arg in args]
@@ -413,7 +414,7 @@ class Lever:
 
 class Adaptor:
     """
-    Wrapper to indicate string is an adaptor name.
+    Wrapper to indicate string is an adapter name.
     Currently only used for logic. 
     """
     def __init__(self, name):

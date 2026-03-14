@@ -1,44 +1,44 @@
 # Many ways to use listeners, here are some examples
 from timberborn_api import TimberbornAPI
 
-# Listen to all adaptor state changes
-def all_adaptor_listener(adaptor_name, current_state, prev_state):
-    print(f"Adaptor {adaptor_name} changed from {prev_state} to {current_state}")
+# Listen to all adapter state changes
+def all_adapter_listener(adapter_name, current_state, prev_state):
+    print(f"Adaptor {adapter_name} changed from {prev_state} to {current_state}")
     
-api = TimberbornAPI(on_any_change=all_adaptor_listener) # Listen to all adaptor changes
+api = TimberbornAPI(on_any_change=all_adapter_listener) # Listen to all adapter changes
 
-# Listen to specific adaptor state changes
-def my_listener(adaptor_name, current_state, prev_state):
-    print(f"Adaptor {adaptor_name} changed from {prev_state} to {current_state}")
+# Listen to specific adapter state changes
+def my_listener(adapter_name, current_state, prev_state):
+    print(f"Adaptor {adapter_name} changed from {prev_state} to {current_state}")
 
-api.register_listener("adaptor 1", my_listener)
+api.register_listener("adapter 1", my_listener)
 
-# Register same listener to multiple adaptors
-api.register_listener("adaptor 2", my_listener)
-api.register_listener("adaptor 3", my_listener)
+# Register same listener to multiple adapters
+api.register_listener("adapter 2", my_listener)
+api.register_listener("adapter 3", my_listener)
 
-# This now listenes to adaptors 1, 2 and 3.
+# This now listenes to adapters 1, 2 and 3.
 
 
-# Define a listener that updates a lever based on an adaptor state change
+# Define a listener that updates a lever based on an adapter state change
 # Can be used to recreate logic, like an and gate. 
-def lever_adaptor_listener(adaptor_name, current_state, prev_state):
-    and_adaptor_1_state = None
-    and_adaptor_2_state = None
-    if adaptor_name == "and adaptor 1":
-        and_adaptor_1_state = current_state
-        and_adaptor_2_state = api.get_adaptor("and adaptor 2")['state']
+def lever_adapter_listener(adapter_name, current_state, prev_state):
+    and_adapter_1_state = None
+    and_adapter_2_state = None
+    if adapter_name == "and adapter 1":
+        and_adapter_1_state = current_state
+        and_adapter_2_state = api.get_adapter("and adapter 2")['state']
     else:
-        and_adaptor_1_state = api.get_adaptor("and adaptor 1")['state']
-        and_adaptor_2_state = current_state
+        and_adapter_1_state = api.get_adapter("and adapter 1")['state']
+        and_adapter_2_state = current_state
     
-    api.set_lever("and lever", and_adaptor_1_state and and_adaptor_2_state)
+    api.set_lever("and lever", and_adapter_1_state and and_adapter_2_state)
 
-api.register_listener("and adaptor 1", lever_adaptor_listener)
-api.register_listener("and adaptor 2", lever_adaptor_listener)
+api.register_listener("and adapter 1", lever_adapter_listener)
+api.register_listener("and adapter 2", lever_adapter_listener)
 
 # Will now update state of "and lever" whenever the state of 
-# "and adaptor 1" or "and adaptor 2" changes.
+# "and adapter 1" or "and adapter 2" changes.
 
 
 # Interruption listeners, stop the listener loop when some condition is met.
@@ -46,7 +46,7 @@ def interrupt_listener(name, current_state, prev_state):
     print(f"{name} changed from {prev_state} to {current_state}")
     raise KeyboardInterrupt # Interrupts the listener loop
 
-api.register_listener("interrupt adaptor", interrupt_listener)
+api.register_listener("interrupt adapter", interrupt_listener)
 
 # Starts listening to changes, will stop when KeyboardInterrupt is raised
 api.activate_listener_loop()
