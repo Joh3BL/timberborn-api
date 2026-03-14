@@ -161,7 +161,15 @@ api = TimberbornAPI() arguments:
 ## Contibuting
 
 Contributions are welcome!
-Please open an issue or submit a pull request on [Github](https://github.com/Joh3BL/timberborn-api/pulls).
+
+If you find a bug or have a feature request,
+please open an [Issue](https://github.com/Joh3BL/timberborn-api/issues).
+
+If you'd like to contribute code:
+
+1. Fork the repository
+2. Create a branch
+3. Submit a [Pull Request](https://github.com/Joh3BL/timberborn-api/pulls)
 
 ## License
 
