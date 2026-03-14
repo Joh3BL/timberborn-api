@@ -100,7 +100,7 @@ please refer to the [examples]("https://github.com/Joh3BL/timberborn-api/tree/ma
 ## Configuration
 
 - *base_url* (str): URL of your Timberborn API server (default: `http//localhost:8080/api`)
-- *cache_ttl* (float): Cache _Time To Live_ in seconds (default: 8). Used for get_lever/get_adaptor
+- *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adaptor
 - *on_any_change* (callable): Optional global callback when any adaptor changes
 
 ## Contibuting
