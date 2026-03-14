@@ -1,6 +1,7 @@
 import time
 import requests
 import urllib.parse
+from typing import Union
 
 
 class TimberbornAPI:
@@ -45,30 +46,6 @@ class TimberbornAPI:
             str: URL-encoded name.
         """
         return urllib.parse.quote(name)
-
-    @staticmethod
-    def get_color(name: str):
-        """
-        Return a hex color code for a given color name.
-
-        Args:
-            name (str): Name of the color (e.g., "red", "green").
-
-        Returns:
-            str: Hex code string in format "#RRGGBB". Defaults to white.
-        """
-        colors = {
-            "red": "#ff5050",
-            "green": "#50ff78",
-            "blue": "#5090ff",
-            "yellow": "#ffdc50",
-            "orange": "#ff9650",
-            "purple": "#b478ff",
-            "cyan": "#50ffff",
-            "pink": "#ff78c8",
-            "white": "#ffffff",
-        }
-        return colors.get(name.lower(), "#ffffff")
 
     # Internal cache helpers
     def _is_valid(self, obj):
@@ -342,3 +319,106 @@ class TimberbornAPI:
         except KeyboardInterrupt:
             return
     
+    # Logic modules
+    ConditionItem = Union[bool, str, 'Lever', 'Adaptor']
+
+    def _turn_to_bool(self, arg: ConditionItem) -> bool:
+        """
+        Returns ready booleans as themselves.  
+        By default, interprets strings as adaptor names,  
+        or gets the state of a wrapped Lever or Adaptor name.
+        """
+        if isinstance(arg, bool):
+            return arg
+        elif isinstance(arg, str):
+            return self.get_adaptor(arg)['state']
+        elif isinstance(arg, Lever):
+            return self.get_lever(arg.name)['state']
+        elif isinstance(arg, Adaptor):
+            return self.get_adaptor(arg.name)['state']
+        else:
+            raise TypeError(f"Unknown condition type {arg}")
+
+    def not_(self, *args):
+        """
+        Negates all inputs. 
+        
+        Args:
+            Some ConditionItem(s):
+                Bool, 
+                string that is an adaptor name
+                A() wrapper (adaptor)
+                L() wrapper (lever)
+
+        Returns:
+          - single boolean if only one input
+          - list of booleans if multiple inputs
+        """
+        results = [not self._turn_to_bool(arg) for arg in args]
+        if len(results) == 1:
+            return results[0]  # single boolean for convenience
+        return results      # list if multiple
+
+    def and_(self, *args) -> bool:
+        """
+        Returns: True if all inputs evaluate to True
+
+        Args:
+            Some ConditionItem(s):
+                Bool, 
+                string that is an adaptor name
+                A() wrapper (adaptor)
+                L() wrapper (lever)
+        """
+        results = [self._turn_to_bool(arg) for arg in args]
+        return all(results)
+
+    def or_(self, *args) -> bool:
+        """
+        Returns: True if any input evaluates to True
+
+        Args:
+            Some ConditionItem(s):
+                Bool, 
+                string that is an adaptor name
+                A() wrapper (adaptor)
+                L() wrapper (lever)
+        """
+        results = [self._turn_to_bool(arg) for arg in args]
+        return any(results)
+
+    def xor_(self, *args) -> bool:
+        """
+        Returns: True if an odd number of inputs evaluate to True.
+        For two inputs: Return True if exactly one input is True.
+
+        Args:
+            Some ConditionItem(s):
+                Bool, 
+                string that is an adaptor name
+                A() wrapper (adaptor)
+                L() wrapper (lever)
+        """
+        results = [self._turn_to_bool(arg) for arg in args]
+        return sum(results) % 2 == 1
+    
+
+class Lever:
+    """
+    Wrapper to inicate string is a lever name.
+    Currently only used for logic. 
+    """
+    def __init__(self, name):
+        self.name = name
+
+class Adaptor:
+    """
+    Wrapper to indicate string is an adaptor name.
+    Currently only used for logic. 
+    """
+    def __init__(self, name):
+        self.name = name
+
+# Short aliases for convenience
+L = Lever
+A = Adaptor

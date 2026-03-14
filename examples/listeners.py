@@ -19,6 +19,7 @@ api.register_listener("adaptor 3", my_listener)
 
 # This now listenes to adaptors 1, 2 and 3.
 
+
 # Define a listener that updates a lever based on an adaptor state change
 # Can be used to recreate logic, like an and gate. 
 def lever_adaptor_listener(adaptor_name, current_state, prev_state):
@@ -38,3 +39,16 @@ api.register_listener("and adaptor 2", lever_adaptor_listener)
 
 # Will now update state of "and lever" whenever the state of 
 # "and adaptor 1" or "and adaptor 2" changes.
+
+
+# Interruption listeners, stop the listener loop when some condition is met.
+def interrupt_listener(name, current_state, prev_state):
+    print(f"{name} changed from {prev_state} to {current_state}")
+    raise KeyboardInterrupt # Interrupts the listener loop
+
+api.register_listener("interrupt adaptor", interrupt_listener)
+
+# Starts listening to changes, will stop when KeyboardInterrupt is raised
+api.activate_listener_loop()
+
+print("Continued normally!")
