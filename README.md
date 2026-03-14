@@ -13,7 +13,9 @@ Provides easy control over levers, reading adapters, and listening for state cha
 
 ## Installation / Usage
 
-### Install from github
+### Install from github via pip
+
+This *\*should\** install dependencies
 
 ```bash
 pip install git+https://github.com/Joh3BL/timberborn-api.git
