@@ -83,7 +83,7 @@ api.activate_listener_loop(
 
 ### Logic Gates
 
-Logic gates can be used to simulate the relay logic from [Timberborn](https://store.steampowered.com/app/1284200/Timberborn/). This allows for easy, simple to update complex logic. More thorough examples can be found in the [examples]("https://github.com/Joh3BL/timberborn-api/tree/main/examples") folder.
+Logic gates can be used to simulate the relay logic from [Timberborn](https://store.steampowered.com/app/1284200/Timberborn/). This allows for easy, simple to update complex logic. More thorough examples can be found in the [Examples](https://github.com/Joh3BL/timberborn-api/tree/main/examples) folder.
 
 ```python
 # Import Lever and Adaptor wrappers for logic gates
@@ -135,7 +135,7 @@ Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** 
 ### Examples
 
 If you have any other questions to how this works or how it can be used,  
-please refer to the [examples]("https://github.com/Joh3BL/timberborn-api/tree/main/examples").
+please refer to the [examples](https://github.com/Joh3BL/timberborn-api/tree/main/examples).
 
 ## Configuration
 
