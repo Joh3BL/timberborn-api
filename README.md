@@ -56,7 +56,7 @@ api.set_color("Lever 1", "fffff") # Sets to white using hex
 print(api.list_levers())
 
 # Get adapter state
-adapter = api.get_adapter("Adaptor 1")
+adapter = api.get_adapter("Adapter 1")
 print(adapter['state'])
 
 # List all adapters
@@ -69,7 +69,7 @@ print(api.list_adapters())
 def my_listener(name, current_state, prev_state):
     print(f"{name} changed from {prev_state} to {current_state}")
 
-api.register_listener("Adaptor 1", my_listener)
+api.register_listener("Adapter 1", my_listener)
 
 # Manually check for changes
 api.check_listeners()
@@ -86,7 +86,7 @@ api.activate_listener_loop(
 Logic gates can be used to simulate the relay logic from [Timberborn](https://store.steampowered.com/app/1284200/Timberborn/). This allows for easy, simple to update complex logic. More thorough examples can be found in the [Examples](https://github.com/Joh3BL/timberborn-api/tree/main/examples) folder.
 
 ```python
-# Import Lever and Adaptor wrappers for logic gates
+# Import Lever and Adapter wrappers for logic gates
 from timberborn_api import TimberbornAPI, L, A
 
 api = TimberbornAPI()

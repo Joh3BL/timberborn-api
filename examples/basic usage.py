@@ -18,7 +18,7 @@ api.set_color("Lever 1", "fffff") # Sets to white using hex
 print(api.list_levers())
 
 # Get adapter state
-adapter = api.get_adapter("Adaptor 1")
+adapter = api.get_adapter("Adapter 1")
 print(adapter['state'])
 
 # List all adapters

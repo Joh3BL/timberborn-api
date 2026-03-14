@@ -122,37 +122,37 @@ class TimberbornAPI:
     def set_lever(self, name: str, state: bool):
         """
         Set a lever's state via the Timberborn API.
-    
+
         Args:
             name (str): Name of the lever (e.g., "lever 1").
             state (bool): Desired lever state (True = on, False = off).
-    
+
         Returns:
             dict: Updated lever object.
-    
+
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
         """
         lever = self.get_lever(name)
         if lever.get("state") == state:
             return lever  # Already in desired state
-    
+
         name_enc = self.encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
         url = f"{self.base_url}/{endpoint}/{name_enc}"
-    
+
         r = requests.post(url)
-    
+
         if r.status_code == 404:
             raise RuntimeError(f"Lever '{name}' does not exist on the server.")
         elif r.status_code != 200:
             raise RuntimeError(f"Failed to set lever '{name}' (HTTP {r.status_code})")
-    
+
         try:
             lever = r.json()
         except ValueError:
             raise RuntimeError(f"Unexpected response when setting lever '{name}': {r.text!r}")
-    
+
         return self._store(self._lever_cache, lever)
 
     def set_color(self, name, color_hex: str):
@@ -172,7 +172,7 @@ class TimberbornAPI:
         r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")
         return r.status_code == 200
 
-    # Adaptor methods
+    # Adapter methods
     def get_adapter(self, name):
         """
         Get an adapter by name, using cached data if available and recent.
@@ -181,7 +181,7 @@ class TimberbornAPI:
             name (str): Name of the adapter (e.g., "adapter 1").
 
         Returns:
-            dict: Adaptor object, cached copy is used if TTL has not expired.
+            dict: Adapter object, cached copy is used if TTL has not expired.
                 Example:
                 {
                     "name": "adapter 1",
@@ -242,9 +242,9 @@ class TimberbornAPI:
             def my_listener(name, current_state, prev_state):
                 print(f"State of {name} changed from {prev_state} to {current_state}.")
             
-            api.register_listener("Adaptor 1")
+            api.register_listener("Adapter 1")
             # Lever switched to on
-            # Output: State of Adaptor 1 changed from False to True
+            # Output: State of Adapter 1 changed from False to True
         
         Notes:
             - Listeners are only triggered by changes detected in check_listeners(), which must be called
@@ -333,13 +333,13 @@ class TimberbornAPI:
             return
     
     # Logic modules
-    ConditionItem = Union[bool, str, 'Lever', 'Adaptor']
+    ConditionItem = Union[bool, str, 'Lever', 'Adapter']
 
     def _turn_to_bool(self, arg: ConditionItem) -> bool:
         """
         Returns ready booleans as themselves.  
         By default, interprets strings as adapter names,  
-        or gets the state of a wrapped Lever or Adaptor name.
+        or gets the state of a wrapped Lever or Adapter name.
         """
         if isinstance(arg, bool):
             return arg
@@ -347,7 +347,7 @@ class TimberbornAPI:
             return self.get_adapter(arg)['state']
         elif isinstance(arg, Lever):
             return self.get_lever(arg.name)['state']
-        elif isinstance(arg, Adaptor):
+        elif isinstance(arg, Adapter):
             return self.get_adapter(arg.name)['state']
         else:
             raise TypeError(f"Unknown condition type {arg}")
@@ -424,7 +424,7 @@ class Lever:
     def __init__(self, name):
         self.name = name
 
-class Adaptor:
+class Adapter:
     """
     Wrapper to indicate string is an adapter name.
     Currently only used for logic. 
@@ -434,4 +434,4 @@ class Adaptor:
 
 # Short aliases for convenience
 L = Lever
-A = Adaptor
+A = Adapter

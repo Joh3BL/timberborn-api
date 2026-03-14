@@ -3,13 +3,13 @@ from timberborn_api import TimberbornAPI
 
 # Listen to all adapter state changes
 def all_adapter_listener(adapter_name, current_state, prev_state):
-    print(f"Adaptor {adapter_name} changed from {prev_state} to {current_state}")
+    print(f"Adapter {adapter_name} changed from {prev_state} to {current_state}")
     
 api = TimberbornAPI(on_any_change=all_adapter_listener) # Listen to all adapter changes
 
 # Listen to specific adapter state changes
 def my_listener(adapter_name, current_state, prev_state):
-    print(f"Adaptor {adapter_name} changed from {prev_state} to {current_state}")
+    print(f"Adapter {adapter_name} changed from {prev_state} to {current_state}")
 
 api.register_listener("adapter 1", my_listener)
 
