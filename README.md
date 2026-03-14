@@ -6,10 +6,11 @@ Provides easy control over levers, reading adapters, and listening for state cha
 ## Features
 
 - Control levers: get and set their state.
-- Read adapters: fetch current adapter states.
-- Listener system: trigger callbacks on adapter state changes.
-- Fast caching with configurable TTL.
 - Set lever colors using hex codes.
+- Read adapters: fetch current adapter states.
+- Listener system: trigger callbacks on adapter or lever state changes.
+- Fast caching with configurable TTL.
+- Use Timberborns own adapter change system for listeners.
 
 ## Installation / Usage
 
@@ -46,7 +47,8 @@ from timberborn_api import TimberbornAPI
    when the adapter turns on and off. This will then use the Flask server, and call your code.
      You also need to verify that the port for the adapter's is 8081, if it's not,
    initialize api with adapter_listener_port as the proper code.
-4. If you plan on contributing, you can use a main.py file, as the git won't upload your test code.
+4. If you plan on contributing, you can use a `main.py` file,
+   as git will then *not* upload your test code.
 
 ### Basic Example
 
@@ -106,7 +108,7 @@ api.register_adapter_listener("Adapter 1", adapter_listener)
 
 ### Logic Gates
 
-Logic gates can be used to simulate the relay logic from [Timberborn](https://store.steampowered.com/app/1284200/Timberborn/). This allows for easy, simple to update complex logic. More thorough examples can be found in the [Examples](https://github.com/Joh3BL/timberborn-api/tree/main/examples) folder.
+Logic gates can be used to simulate the relay logic from [**Timberborn**](https://store.steampowered.com/app/1284200/Timberborn/). This allows for easy, simple to update complex logic. More thorough examples can be found in the [*Examples*](https://github.com/Joh3BL/timberborn-api/tree/main/examples) folder.
 
 ```python
 # Import Lever and Adapter wrappers for logic gates
@@ -131,7 +133,7 @@ print(api.or_(*api.not_( # Reverts all inputs, simulates NOR gate
     )))
 ```
 
-As not\_ returns a list whenever you have multiple arguments, you can use a not\_ gate to simulate reverse gates, like NAND and NOR. Remember to use **\***api.not\_ so that the list gets unpacked into *\*args*. not\_ returns just a boolean when only 1 value is given.
+As not\_ returns a list whenever you have multiple arguments, you can use a not\_ gate to simulate *reverse gates*, like NAND and NOR. Remember to use **\***api.not\_ so that the list gets unpacked into *\*args*. Not\_ returns just a boolean when only 1 value is given.
 
 ## API Reference
 
@@ -155,35 +157,35 @@ Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** 
 - `or_(*args)`
 - `xor_(*args)`
 
-For the logic gates, you need to import the wrappers, L(), A()
+For the logic gates, you need to import the wrappers, `L()`, `A()`
 
 ### Examples
 
 If you have any other questions to how this works or how it can be used,  
-please refer to the [examples](https://github.com/Joh3BL/timberborn-api/tree/main/examples).
+please refer to the [*Examples*](https://github.com/Joh3BL/timberborn-api/tree/main/examples).
 
 ## Configuration
 
 api = `TimberbornAPI()` arguments:
 
-- *base_url* (str): URL of your Timberborn API server (default: `http://localhost:8080/api`)
-- *adapter_listener_port* (str): Port for adapter calls (default: `8081`)
-- *cache_ttl* (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adapter
-- *on_any_change* (callable): Optional global callback when any adapter changes
+- ***base_url*** (str): URL of your Timberborn API server (default: `http://localhost:8080/api`)
+- ***adapter_listener_port*** (str): Port for adapter calls (default: `8081`)
+- ***cache_ttl*** (float): Cache *Time To Live* in seconds (default: 8). Used for get_lever/get_adapter
+- ***on_any_change*** (callable): Optional global callback when any adapter changes
 
 ## Contibuting
 
 Contributions are welcome!
 
 If you find a bug or have a feature request,
-please open an [Issue](https://github.com/Joh3BL/timberborn-api/issues).
+please open an [**Issue**](https://github.com/Joh3BL/timberborn-api/issues).
 
 If you'd like to contribute code:
 
 1. Fork the repository
 2. Create a branch
-3. Submit a [Pull Request](https://github.com/Joh3BL/timberborn-api/pulls)
+3. Submit a [**Pull Request**](https://github.com/Joh3BL/timberborn-api/pulls)
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENCE](https://github.com/Joh3BL/timberborn-api/blob/main/LICENSE) file for more information
+This project is licensed under the MIT License. See the [**LICENCE**](https://github.com/Joh3BL/timberborn-api/blob/main/LICENSE) file for more information
