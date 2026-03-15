@@ -7,14 +7,14 @@ Authors:
 
 """
 
-from flask import Flask
 from threading import Thread
 import urllib.parse
-
 import inspect
 import time
+import logging  # Used to silence Flask logs in _start_adapter_server
+
+from flask import Flask
 import requests
-import logging # Used to silence Flask logs in _start_adapter_server
 
 class Lever:
     """
