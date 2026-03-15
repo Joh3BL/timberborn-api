@@ -8,6 +8,7 @@ Authors:
 """
 
 from threading import Thread
+from typing import Union
 import urllib.parse
 import inspect
 import time
@@ -44,7 +45,7 @@ class Adapter:
     def __repr__(self):
         return f"A({self.name})"
 
-ConditionItem = bool | str | Lever | Adapter
+ConditionItem = Union[bool, str, Lever, Adapter]
 
 # pylint: disable=too-many-instance-attributes
 class TimberbornAPI:
