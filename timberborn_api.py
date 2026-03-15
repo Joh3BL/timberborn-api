@@ -400,6 +400,38 @@ class TimberbornAPI:
         except KeyboardInterrupt:
             return
     
+    def initialize_adapter_prev_states(self):
+        """
+        Initialize all adapter listeners with their current state.
+
+        For each adapter listener:
+          - Calls all registered functions with:
+              current_state = current API state
+              prev_state = previously recorded state, or None if not yet set
+          - Updates the internal prev_state to the current state
+
+        Notes:
+            - This is useful to sync listener states when starting the game or refreshing.
+            - Not required, but can be useful.
+        """
+        # Fetch latest adapter states from the API
+        current_adapters = self.list_adapters()
+
+        for adapter_name, info_dict in self._adapter_listeners.items():
+            prev_state = info_dict.get('prev_state', None)
+            current_state = current_adapters.get(adapter_name)
+
+            if current_state is None:
+                # Adapter not found; skip
+                continue
+
+            # Call all registered functions
+            for func in info_dict['funcs']:
+                func(adapter_name, current_state, prev_state)
+
+            # Update prev_state to current API state
+            self._adapter_listeners[adapter_name]['prev_state'] = current_state
+
     def _trigger_adapter(self, adapter_name, current_state):
         """Call registered callbacks when an adapter changes state."""
         if adapter_name not in self._adapter_listeners:
