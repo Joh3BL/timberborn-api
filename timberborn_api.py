@@ -7,37 +7,82 @@ Authors:
 
 """
 
+from threading import Thread
 from typing import Union
 import urllib.parse
 import inspect
 import time
+import logging  # Used to silence Flask logs in _start_adapter_server
+
+from flask import Flask
 import requests
 
+class Lever:
+    """
+    Wrapper to indicate string is a lever name.
+    Currently only used for logic. 
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"L({self.name})"
+
+class Adapter:
+    """
+    Wrapper to indicate string is an adapter name.
+    Currently only used for logic. 
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"A({self.name})"
+
+ConditionItem = Union[bool, str, Lever, Adapter]
+
+# pylint: disable=too-many-instance-attributes
 class TimberbornAPI:
-    """
-    Main API client class for interacting with the Timberborn API.
-    Provides methods to get and set levers, get adapters, and register listeners.
-    Call TimberbornAPI.methods() to get a list of available methods.
-    """
-    def __init__(self, base_url="http://localhost:8080/api", cache_ttl=8, on_any_change=None):
+    """Timberborn API client with caching, listeners, and logic modules."""
+    def __init__(
+            self,
+            base_url="http://localhost:8080/api",
+            adapter_listener_port=8081,
+            cache_ttl=8,
+            on_any_change=None):
         """
         Initialize TimberbornAPI client.
 
         Args:
-            base_url (str) (defaults to http://localhost:8080/api): Base URL for the Timberborn API.
-            cache_ttl (float) (defaults to 8): Time-to-live for cached items in seconds.
+            base_url (str) (defaults to http://localhost:8080/api): 
+                Base URL for the Timberborn API.
+            cache_ttl (float) (defaults to 8): 
+                Time-to-live for cached items in seconds.
+            adapter_listener_port (int) (defaults to 8081): 
+                Port to listen for adapter change events. 
+                This should match the port configured in Timberborn for sending adapter updates.
             on_any_change (func): 
                 Called like a listener whenever any value has changed, before all other listeners.
                 Called as (adapter_name, current_state, prev_state). Can be used to log changes.
                 If it is None, it won't call anything.
         """
         self.base_url = base_url.rstrip("/")
+        self.adapter_port = adapter_listener_port
         self.cache_ttl = cache_ttl
         self.on_any_change = on_any_change
 
         self._lever_cache = {}
         self._adapter_cache = {}
-        self._listeners = {}
+        self._lever_listeners = {}
+        self._adapter_listeners = {}
+
+        self._start_adapter_server() # Start the background Flask server for adapters
 
     # Helper to provide available methods
     @classmethod
@@ -67,6 +112,7 @@ class TimberbornAPI:
         return time.monotonic() - obj["_ts"] < self.cache_ttl
 
     def _store(self, cache, obj):
+        obj = obj.copy()
         obj["_ts"] = time.monotonic()
         cache[obj["name"]] = obj
         return obj
@@ -138,8 +184,9 @@ class TimberbornAPI:
         result = {}
 
         for lever in data:
-            lever["_ts"] = now
-            self._lever_cache[lever["name"]] = lever
+            lever_copy = lever.copy()
+            lever_copy["_ts"] = now
+            self._lever_cache[lever["name"]] = lever_copy
             result[lever["name"]] = {
                 "state": lever["state"],
                 "springReturn": lever["springReturn"]
@@ -189,7 +236,6 @@ class TimberbornAPI:
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
         """
-
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
 
@@ -254,64 +300,84 @@ class TimberbornAPI:
         result = {}
 
         for adapter in data:
-            adapter["_ts"] = now
-            self._adapter_cache[adapter["name"]] = adapter
+            adapter_copy = adapter.copy()
+            adapter_copy["_ts"] = now
+            self._adapter_cache[adapter["name"]] = adapter_copy
             result[adapter["name"]] = adapter["state"]
 
         return result
 
     # Listeners
-    def register_listener(self, name, func):
+    def register_lever_listener(self, name, func):
         """
         Registers a function as a listener. 
-        Function will be called as func(adapter_name: str, current_state: bool, prev_state: bool)
-        whenever the state of the adapter it's registered to changes
+        Function will be called as func(lever_name: str, current_state: bool, prev_state: bool)
+        whenever the state of the lever it's registered to changes
 
         Args:
-            name: (str): Name of the adapter to listen to
-            func: (function): Function to call whenever the state of the adapter changes
+            name: (str): Name of the lever to listen to
+            func: (function): Function to call whenever the state of the lever changes
                 
         Example:
             api = TimberbornAPI()
             def my_listener(name, current_state, prev_state):
                 print(f"State of {name} changed from {prev_state} to {current_state}.")
             
-            api.register_listener("Adapter 1")
+            api.register_listener("Lever 1")
             # Lever switched to on
-            # Output: State of Adapter 1 changed from False to True
+            # Output: State of Lever 1 changed from False to True
         
         Notes:
-            - Listeners are only triggered by changes detected in check_listeners(), 
-              so you need to call the function, or activate_lever_listener_loop().
-            - Listeners are called in the order they were registered for a given adapter.
-            - You can call register_listener multiple times for the same adapter to 
-              register multiple functions, and they will all be called when the state changes.
-            - If the adapter's state changes multiple times between calls to check_listeners(),
-              the listener functions won't be called if the final state didn't change.
+            - Lever listeners are only triggered by changes detected in check_listeners(), 
+              which must be called, or use activate_lever_listener_loop().
+            - Listeners are called in the order they were registered for a given lever.
+            - You can call register_lever_listener multiple times for the same lever to register 
+              multiple functions, and they will all be called when the state changes.
+            - If the lever's state changes multiple times between calls to check_listeners(),
+              the listener functions won't be called if the final state 
+              is the same as the initial state.
             - prev_state will be None for the first call to the listener, 
-              as prev_state is then unknown. This always triggers the listener.
+              as prev_state is then unknown. 
         """
 
-        if name not in self._listeners:
-            self._listeners[name] = {'prev_state': None, 'funcs': [func]}
+        if name not in self._lever_listeners:
+            self._lever_listeners[name] = {'prev_state': None, 'funcs': [func]}
         else:
-            self._listeners[name]['funcs'].append(func)
+            self._lever_listeners[name]['funcs'].append(func)
 
-    def check_listeners(self):
+    def register_adapter_listener(self, name, func):
         """
-        Checks through all listener adapters and checks if their value has changed.
+        Registers a function as an adapter listener.
+        Called like func(adapter_name, current_state, prev_state).
+
+        See register_lever_listener.__doc__ for more details,
+        it works the same but for adapters instead of levers.
+
+        This one however works with Timberborns API adapter updates,
+        so it might be more responsive, reliable and efficient than lever listeners.
+        """
+        if name not in self._adapter_listeners:
+            self._adapter_listeners[name] = {'funcs': [func], 'prev_state': None}
+        else:
+            self._adapter_listeners[name]['funcs'].append(func)
+
+    def check_lever_listeners(self):
+        """
+        Checks through all listener levers and checks if their value has changed.
         If it has changed, calls all functions in order registered.
 
         Notes:
-            - Always updates cache, calls .list_adapters() for new data.
+            - Always updates cache, calls .list_levers() for new data. 
         """
-        if not self._listeners:
+        if not self._lever_listeners:
             return
 
-        data = self.list_adapters()
+        data = self.list_levers()
 
-        for adapter_name, info_dict in self._listeners.items():
-            current_state = data.get(adapter_name)
+        for lever_name, info_dict in self._lever_listeners.items():
+            lever_data = data.get(lever_name)
+
+            current_state = lever_data["state"]
 
             if current_state is None:
                 continue
@@ -320,14 +386,14 @@ class TimberbornAPI:
                 continue
 
             if self.on_any_change is not None:
-                self.on_any_change(adapter_name, current_state, info_dict['prev_state'])
+                self.on_any_change(lever_name, current_state, info_dict['prev_state'])
 
             for func in info_dict['funcs']:
-                func(adapter_name, current_state, info_dict['prev_state'])
+                func(lever_name, current_state, info_dict['prev_state'])
 
-            info_dict['prev_state'] = current_state
+            info_dict['prev_state']['prev_state'] = current_state
 
-    def activate_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
+    def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
         Initiates a while (not exit_condition(tick_count)) loop, that calls .check_listeners().
         Exits when exit_condition returns True.
@@ -344,7 +410,7 @@ class TimberbornAPI:
             - This function may be difficult to exit and it's intend as a shortcut
               for users who want to use listeners without having to call check_listeners().
             - If you want to exit the loop, provide an exit_condition(ticks_called_so_far) that
-              at some point returns a True value.
+              at some point returns a True value, or you can raise KeyboardInterrupt.
             - You can also press Ctrl+C on your keyboard to exit the loop cleanly, this will return. 
         """
 
@@ -354,7 +420,7 @@ class TimberbornAPI:
 
         try:
             while not exit_condition(tick):
-                self.check_listeners()
+                self.check_lever_listeners()
                 tick += 1
 
                 next_tick_time += tick_seconds
@@ -365,9 +431,86 @@ class TimberbornAPI:
         except KeyboardInterrupt:
             pass
 
-    # Logic modules
-    ConditionItem = Union[bool, str, 'Lever', 'Adapter']
+    def initialize_adapter_prev_states(self):
+        """
+        Initialize all adapter listeners with their current state.
 
+        For each adapter listener:
+          - Calls all registered functions with:
+              current_state = current API state
+              prev_state = previously recorded state, or None if not yet set
+          - Updates the internal prev_state to the current state
+
+        Notes:
+            - This is useful to sync listener states when starting the game or refreshing.
+            - Not required, but can be useful.
+        """
+        # Fetch latest adapter states from the API
+        current_adapters = self.list_adapters()
+
+        for adapter_name, info_dict in self._adapter_listeners.items():
+            prev_state = info_dict.get('prev_state', None)
+            current_state = current_adapters.get(adapter_name)
+
+            if current_state is None:
+                # Adapter not found; skip
+                continue
+
+            # Call all registered functions
+            for func in info_dict['funcs']:
+                func(adapter_name, current_state, prev_state)
+
+            # Update prev_state to current API state
+            info_dict['prev_state'] = current_state
+
+    def _trigger_adapter(self, adapter_name, current_state):
+        """Call registered callbacks when an adapter changes state."""
+        if adapter_name not in self._adapter_listeners:
+            return
+
+        prev_state = self._adapter_listeners[adapter_name]['prev_state']
+        if prev_state == current_state:
+            return
+
+        # Optional global hook
+        if self.on_any_change is not None:
+            self.on_any_change(adapter_name, current_state, prev_state)
+
+        # Call all registered functions
+        for func in self._adapter_listeners[adapter_name]['funcs']:
+            func(adapter_name, current_state, prev_state)
+
+        # Update previous state
+        self._adapter_listeners[adapter_name]['prev_state'] = current_state
+
+    def _start_adapter_server(self):
+        """Starts a Flask server to listen for adapter GET requests."""
+        app = Flask(__name__)
+
+        # Silence the Flask/Werkzeug info messages
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        app.logger.setLevel(logging.ERROR)
+
+        @app.route("/on/<adapter_name>", methods=["GET"])
+        def on_adapter(adapter_name):
+            adapter_name = urllib.parse.unquote(adapter_name)
+            self._trigger_adapter(adapter_name, True)
+            return "OK", 200
+
+        @app.route("/off/<adapter_name>", methods=["GET"])
+        def off_adapter(adapter_name):
+            adapter_name = urllib.parse.unquote(adapter_name)
+            self._trigger_adapter(adapter_name, False)
+            return "OK", 200
+
+        def run():
+            app.run(port=self.adapter_port, debug=False, use_reloader=False)
+
+        thread = Thread(target=run, daemon=True)
+        thread.start()
+
+    # Logic modules
     def _turn_to_bool(self, arg: ConditionItem) -> bool:
         """
         Returns ready booleans as themselves.  
@@ -446,23 +589,6 @@ class TimberbornAPI:
         """
         results = [self._turn_to_bool(arg) for arg in args]
         return sum(results) % 2 == 1
-
-
-class Lever:  # pylint: disable=too-few-public-methods
-    """
-    Wrapper to inicate string is a lever name.
-    Currently only used for logic. 
-    """
-    def __init__(self, name):
-        self.name = name
-
-class Adapter:  # pylint: disable=too-few-public-methods
-    """
-    Wrapper to indicate string is an adapter name.
-    Currently only used for logic. 
-    """
-    def __init__(self, name):
-        self.name = name
 
 # Short aliases for convenience
 L = Lever

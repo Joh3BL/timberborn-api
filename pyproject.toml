@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,11 @@ description = "Python client for the Timberborn HTTP API"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
-dependencies = ["requests", "flask"]
+
+dependencies = [
+    "requests",
+    "flask"
+]
 
 authors = [
     {name = "Joh3BL"}
@@ -25,3 +29,10 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries",
 ]
+
+[tool.setuptools]
+py-modules = ["timberborn_api"]
+
+[project.urls]
+Homepage = "https://github.com/Joh3BL/timberborn-api"
+Issues = "https://github.com/Joh3BL/timberborn-api/issues"
