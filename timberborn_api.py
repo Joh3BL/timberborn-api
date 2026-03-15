@@ -56,6 +56,13 @@ class TimberbornAPI:
         cache[obj["name"]] = obj
         return obj
 
+    @staticmethod
+    def _check_response(r):
+        if r.status_code == 404:
+            raise RuntimeError(r.text)
+        elif r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+
     # Lever methods
     def get_lever(self, name):
         """
@@ -85,10 +92,7 @@ class TimberbornAPI:
 
         r = requests.get(f"{self.base_url}/levers/{name_enc}")
 
-        if r.status_code == 404:
-            raise RuntimeError(r.text)
-        elif r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        self._check_response(r)
 
         lever = r.json()
         return self._store(self._lever_cache, lever)
@@ -151,10 +155,7 @@ class TimberbornAPI:
 
         r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")
 
-        if r.status_code == 404:
-            raise RuntimeError(r.text)
-        elif r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        self._check_response(r)
 
         lever["state"] = state
         return self._store(self._lever_cache, lever)
@@ -180,10 +181,7 @@ class TimberbornAPI:
         name_enc = self.encode_name(name)
         r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")
 
-        if r.status_code == 404:
-            raise RuntimeError(r.text)
-        elif r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        self._check_response(r)
 
         return True
 
@@ -215,10 +213,7 @@ class TimberbornAPI:
 
         r = requests.get(f"{self.base_url}/adapters/{name_enc}")
 
-        if r.status_code == 404:
-            raise RuntimeError(r.text)
-        elif r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        self._check_response(r)
 
         adapter = r.json()
         return self._store(self._adapter_cache, adapter)
