@@ -34,4 +34,4 @@ jobs:
 
       - name: Run basic tests
         run: |
-          python tests/basic_test.py
+          python -m tests.test_basic.py

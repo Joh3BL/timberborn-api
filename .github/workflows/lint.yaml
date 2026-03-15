@@ -38,4 +38,4 @@ jobs:
       - name: Run pylint
         run: |
           # Lint only main module, skip tests folder for now
-          pylint timberborn_api.py
+          pylint timberborn_api/timberborn_api.py
