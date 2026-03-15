@@ -12,7 +12,8 @@ class TimberbornAPI:
         Args:
             base_url (str) (defaults to http://localhost:8080/api): Base URL for the Timberborn API.
             cache_ttl (float) (defaults to 8): Time-to-live for cached items in seconds.
-            on_any_change (func): Called like a listener whenever any value has changed, before all other listeners.
+            on_any_change (func): 
+                Called like a listener whenever any value has changed, before all other listeners.
                 Called as (adapter_name, current_state, prev_state). Can be used to log changes.
                 If it is None, it won't call anything.
         """
@@ -266,13 +267,15 @@ class TimberbornAPI:
             # Output: State of Adapter 1 changed from False to True
         
         Notes:
-            - Listeners are only triggered by changes detected in check_listeners(), which must be called
+            - Listeners are only triggered by changes detected in check_listeners(), 
+              so you need to call the function, or activate_lever_listener_loop().
             - Listeners are called in the order they were registered for a given adapter.
-            - You can call register_listener multiple times for the same adapter to register multiple functions, 
-              and they will all be called when the state changes.
+            - You can call register_listener multiple times for the same adapter to 
+              register multiple functions, and they will all be called when the state changes.
             - If the adapter's state changes multiple times between calls to check_listeners(),
-              the listener functions won't be called if the final state is the same as the initial state.
-            - prev_state will be None for the first call to the listener, as prev_state is then unknown. 
+              the listener functions won't be called if the final state didn't change.
+            - prev_state will be None for the first call to the listener, 
+              as prev_state is then unknown. This always triggers the listener.
         """
 
         if name not in self._listeners:
@@ -286,7 +289,7 @@ class TimberbornAPI:
         If it has changed, calls all functions in order registered.
 
         Notes:
-            - Always updates cache, calls .list_adapters() for new data. 
+            - Always updates cache, calls .list_adapters() for new data.
         """
         if not self._listeners:
             return
@@ -303,7 +306,7 @@ class TimberbornAPI:
 
             if prev_state == current_state:
                 continue
-            
+
             if self.on_any_change is not None:
                 self.on_any_change(adapter_name, current_state, prev_state)
 
@@ -311,7 +314,7 @@ class TimberbornAPI:
                 func(adapter_name, current_state, prev_state)
 
             self._listeners[adapter_name]['prev_state'] = current_state
-    
+
     def activate_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
         Initiates a while (not exit_condition(tick_count)) loop, that calls .check_listeners().
@@ -326,7 +329,8 @@ class TimberbornAPI:
                 when the function would've been called.
         
         Notes:
-            - This function may be difficult to exit and is intend as a shortcut for calling listeners.
+            - This function may be difficult to exit and it's intend as a shortcut
+              for users who want to use listeners without having to call check_listeners().
             - If you want to exit the loop, provide an exit_condition(ticks_called_so_far) that
               at some point returns a True value.
             - You can also press Ctrl+C on your keyboard to exit the loop cleanly, this will return. 
@@ -350,7 +354,7 @@ class TimberbornAPI:
                     time.sleep(sleep_time)
         except KeyboardInterrupt:
             return
-    
+
     # Logic modules
     ConditionItem = Union[bool, str, 'Lever', 'Adapter']
 
@@ -433,7 +437,7 @@ class TimberbornAPI:
         """
         results = [self._turn_to_bool(arg) for arg in args]
         return sum(results) % 2 == 1
-    
+
 
 class Lever:
     """
