@@ -29,9 +29,9 @@ jobs:
 
       - name: Start fake Timberborn server
         run: |
-          python test/fake_server.py &
+          python tests/fake_server.py &
           sleep 2
 
       - name: Run basic tests
         run: |
-          python test/basic_test.py
+          python tests/basic_test.py
