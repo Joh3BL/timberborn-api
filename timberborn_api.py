@@ -1,9 +1,19 @@
+"""
+Timberborn API client for Python.
+Read README.md for usage instructions.
+Examples can be found in the examples/ folder.
+Authors:
+  - Joh3BL
+
+"""
+
+import inspect
 import time
 import requests
-import urllib.parse
 import logging # Used to silence Flask logs in _start_adapter_server
 
 from typing import Union
+import urllib.parse
 from flask import Flask
 from threading import Thread
 
@@ -50,11 +60,11 @@ class TimberbornAPI:
         Args:
             base_url (str) (defaults to http://localhost:8080/api): 
                 Base URL for the Timberborn API.
+            cache_ttl (float) (defaults to 8): 
+                Time-to-live for cached items in seconds.
             adapter_listener_port (int) (defaults to 8081): 
                 Port to listen for adapter change events. 
                 This should match the port configured in Timberborn for sending adapter updates.
-            cache_ttl (float) (defaults to 8): 
-                Time-to-live for cached items in seconds.
             on_any_change (func): 
                 Called like a listener whenever any value has changed, before all other listeners.
                 Called as (adapter_name, current_state, prev_state). Can be used to log changes.
@@ -75,7 +85,7 @@ class TimberbornAPI:
     # Helper to provide available methods
     @classmethod
     def methods(cls):
-        import inspect
+        """Returns a list of available method names for the TimberbornAPI class."""
         return [
             name for name, func in inspect.getmembers(cls, inspect.isfunction)
             if not name.startswith("_")
@@ -105,6 +115,13 @@ class TimberbornAPI:
         cache[obj["name"]] = obj
         return obj
 
+    @staticmethod
+    def _check_response(r):
+        if r.status_code == 404:
+            raise RuntimeError(r.text)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+
     # Lever methods
     def get_lever(self, name):
         """
@@ -122,6 +139,9 @@ class TimberbornAPI:
                     "_ts": 1710234512.483
                 }
             Cached copy is used if TTL has not expired.
+        
+        Raises:
+            RuntimeError: If the lever does not exist on the server or the request fails.
         """
         name_enc = self.encode_name(name)
         lever = self._lever_cache.get(name)
@@ -129,7 +149,10 @@ class TimberbornAPI:
         if lever and self._is_valid(lever):
             return lever
 
-        r = requests.get(f"{self.base_url}/levers/{name_enc}")
+        r = requests.get(f"{self.base_url}/levers/{name_enc}")  # pylint: disable=missing-timeout
+
+        self._check_response(r)
+
         lever = r.json()
         return self._store(self._lever_cache, lever)
 
@@ -152,7 +175,7 @@ class TimberbornAPI:
                     }
                 }
         """
-        r = requests.get(f"{self.base_url}/levers")
+        r = requests.get(f"{self.base_url}/levers")  # pylint: disable=missing-timeout
         data = r.json()
 
         now = time.monotonic()
@@ -185,20 +208,15 @@ class TimberbornAPI:
         """
         lever = self.get_lever(name)
         if lever.get("state") == state:
-            return lever  # Already in desired state
+            return lever
 
         name_enc = self.encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
-        url = f"{self.base_url}/{endpoint}/{name_enc}"
 
-        r = requests.post(url)
+        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
 
-        if r.status_code == 404:
-            raise RuntimeError(f"Lever '{name}' does not exist on the server.")
-        elif r.status_code != 200:
-            raise RuntimeError(f"Failed to set lever '{name}' (HTTP {r.status_code})")
+        self._check_response(r)
 
-        # Update cached lever manually
         lever["state"] = state
         return self._store(self._lever_cache, lever)
 
@@ -212,13 +230,20 @@ class TimberbornAPI:
 
         Returns:
             bool: True if HTTP request returned status 200, False otherwise.
+        
+        Raises:
+            RuntimeError: If the lever does not exist or the request fails.
         """
         #TODO: Updated to use OK response
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
+
         name_enc = self.encode_name(name)
-        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")
-        return r.status_code == 200
+        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
+
+        self._check_response(r)
+
+        return True
 
     # Adapter methods
     def get_adapter(self, name):
@@ -236,6 +261,9 @@ class TimberbornAPI:
                     "state": True,
                     "_ts": 1710234512.483
                 }
+        
+        Raises:
+            RuntimeError: If the adapter does not exist on the server or the request fails.
         """
         name_enc = self.encode_name(name)
         adapter = self._adapter_cache.get(name)
@@ -243,7 +271,10 @@ class TimberbornAPI:
         if adapter and self._is_valid(adapter):
             return adapter
 
-        r = requests.get(f"{self.base_url}/adapters/{name_enc}")
+        r = requests.get(f"{self.base_url}/adapters/{name_enc}")  # pylint: disable=missing-timeout
+
+        self._check_response(r)
+
         adapter = r.json()
         return self._store(self._adapter_cache, adapter)
 
@@ -261,7 +292,7 @@ class TimberbornAPI:
                     "adapter 2": False
                 }
         """
-        r = requests.get(f"{self.base_url}/adapters")
+        r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
         data = r.json()
 
         now = time.monotonic()
@@ -298,8 +329,8 @@ class TimberbornAPI:
         Notes:
             - Listeners are only triggered by changes detected in check_listeners(), which must be called
             - Listeners are called in the order they were registered for a given lever.
-            - You can call register_listener multiple times for the same lever to register multiple functions, 
-              and they will all be called when the state changes.
+            - You can call register_lever_listener multiple times for the same lever to register 
+              multiple functions, and they will all be called when the state changes.
             - If the lever's state changes multiple times between calls to check_listeners(),
               the listener functions won't be called if the final state is the same as the initial state.
             - prev_state will be None for the first call to the listener, as prev_state is then unknown. 
@@ -340,28 +371,23 @@ class TimberbornAPI:
         data = self.list_levers()
 
         for lever_name, info_dict in self._lever_listeners.items():
-            prev_state = info_dict['prev_state']
-            functions = info_dict['funcs']
-
             lever_data = data.get(lever_name)
-            if lever_data is None:
-                continue
             
             current_state = lever_data["state"]
 
             if current_state is None:
                 continue
 
-            if prev_state == current_state:
+            if info_dict['prev_state'] == current_state:
                 continue
-            
+
             if self.on_any_change is not None:
-                self.on_any_change(lever_name, current_state, prev_state)
+                self.on_any_change(lever_name, current_state, info_dict['prev_state'])
 
             for func in functions:
-                func(lever_name, current_state, prev_state)
+                func(lever_name, current_state, info_dict['prev_state'])
 
-            self._lever_listeners[lever_name]['prev_state'] = current_state
+            info_dict['prev_state']['prev_state'] = current_state
     
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
@@ -377,7 +403,8 @@ class TimberbornAPI:
                 when the function would've been called.
         
         Notes:
-            - This function may be difficult to exit and is intend as a shortcut for calling listeners.
+            - This function may be difficult to exit and it's intend as a shortcut
+              for users who want to use listeners without having to call check_listeners().
             - If you want to exit the loop, provide an exit_condition(ticks_called_so_far) that
               at some point returns a True value, or you can raise KeyboardInterrupt.
             - You can also press Ctrl+C on your keyboard to exit the loop cleanly, this will return. 
@@ -398,7 +425,7 @@ class TimberbornAPI:
                 if sleep_time > 0:
                     time.sleep(sleep_time)
         except KeyboardInterrupt:
-            return
+            pass
     
     def initialize_adapter_prev_states(self):
         """
@@ -488,14 +515,13 @@ class TimberbornAPI:
         """
         if isinstance(arg, bool):
             return arg
-        elif isinstance(arg, str):
+        if isinstance(arg, str):
             return self.get_adapter(arg)['state']
-        elif isinstance(arg, Lever):
+        if isinstance(arg, Lever):
             return self.get_lever(arg.name)['state']
-        elif isinstance(arg, Adapter):
+        if isinstance(arg, Adapter):
             return self.get_adapter(arg.name)['state']
-        else:
-            raise TypeError(f"Unknown condition type {arg}")
+        raise TypeError(f"Unknown condition type {arg}")
 
     def not_(self, *args):
         """
