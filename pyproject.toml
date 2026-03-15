@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Python client for the Timberborn HTTP API"
 readme = "README.md"
 requires-python = ">=3.8"
-licence = {file = "LICENCE"}
-dependencies = ["requests"]
+license = {file = "LICENSE"}
+dependencies = ["requests", "flask"]
 
 authors = [
     {name = "Joh3BL"}
