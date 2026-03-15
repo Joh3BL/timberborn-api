@@ -9,6 +9,7 @@ Authors:
 
 from typing import Union
 import urllib.parse
+import inspect
 import time
 import requests
 
@@ -42,7 +43,6 @@ class TimberbornAPI:
     @classmethod
     def methods(cls):
         """Returns a list of available method names for the TimberbornAPI class."""
-        import inspect
         return [
             name for name, func in inspect.getmembers(cls, inspect.isfunction)
             if not name.startswith("_")
@@ -311,21 +311,19 @@ class TimberbornAPI:
         data = self.list_adapters()
 
         for adapter_name, info_dict in self._listeners.items():
-            prev_state = info_dict['prev_state']
-            functions = info_dict['funcs']
             current_state = data.get(adapter_name)
 
             if current_state is None:
                 continue
 
-            if prev_state == current_state:
+            if info_dict['prev_state'] == current_state:
                 continue
 
             if self.on_any_change is not None:
-                self.on_any_change(adapter_name, current_state, prev_state)
+                self.on_any_change(adapter_name, current_state, info_dict['prev_state'])
 
-            for func in functions:
-                func(adapter_name, current_state, prev_state)
+            for func in info_dict['funcs']:
+                func(adapter_name, current_state, info_dict['prev_state'])
 
             self._listeners[adapter_name]['prev_state'] = current_state
 
