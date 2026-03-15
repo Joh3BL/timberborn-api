@@ -73,6 +73,9 @@ class TimberbornAPI:
                     "_ts": 1710234512.483
                 }
             Cached copy is used if TTL has not expired.
+        
+        Raises:
+            RuntimeError: If the lever does not exist on the server or the request fails.
         """
         name_enc = self.encode_name(name)
         lever = self._lever_cache.get(name)
@@ -81,6 +84,12 @@ class TimberbornAPI:
             return lever
 
         r = requests.get(f"{self.base_url}/levers/{name_enc}")
+
+        if r.status_code == 404:
+            raise RuntimeError(r.text)
+        elif r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+
         lever = r.json()
         return self._store(self._lever_cache, lever)
 
@@ -135,20 +144,18 @@ class TimberbornAPI:
         """
         lever = self.get_lever(name)
         if lever.get("state") == state:
-            return lever  # Already in desired state
+            return lever
 
         name_enc = self.encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
-        url = f"{self.base_url}/{endpoint}/{name_enc}"
 
-        r = requests.post(url)
+        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")
 
         if r.status_code == 404:
-            raise RuntimeError(f"Lever '{name}' does not exist on the server.")
+            raise RuntimeError(r.text)
         elif r.status_code != 200:
-            raise RuntimeError(f"Failed to set lever '{name}' (HTTP {r.status_code})")
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
 
-        # Update cached lever manually
         lever["state"] = state
         return self._store(self._lever_cache, lever)
 
@@ -162,12 +169,23 @@ class TimberbornAPI:
 
         Returns:
             bool: True if HTTP request returned status 200, False otherwise.
+        
+        Raises:
+            RuntimeError: If the lever does not exist or the request fails.
         """
+
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
+
         name_enc = self.encode_name(name)
         r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")
-        return r.status_code == 200
+
+        if r.status_code == 404:
+            raise RuntimeError(r.text)
+        elif r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+
+        return True
 
     # Adapter methods
     def get_adapter(self, name):
@@ -185,6 +203,9 @@ class TimberbornAPI:
                     "state": True,
                     "_ts": 1710234512.483
                 }
+        
+        Raises:
+            RuntimeError: If the adapter does not exist on the server or the request fails.
         """
         name_enc = self.encode_name(name)
         adapter = self._adapter_cache.get(name)
@@ -193,6 +214,12 @@ class TimberbornAPI:
             return adapter
 
         r = requests.get(f"{self.base_url}/adapters/{name_enc}")
+
+        if r.status_code == 404:
+            raise RuntimeError(r.text)
+        elif r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+
         adapter = r.json()
         return self._store(self._adapter_cache, adapter)
 
