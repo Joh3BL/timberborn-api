@@ -105,7 +105,7 @@ class TimberbornAPI:
         if lever and self._is_valid(lever):
             return lever
 
-        r = requests.get(f"{self.base_url}/levers/{name_enc}")
+        r = requests.get(f"{self.base_url}/levers/{name_enc}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
 
@@ -131,7 +131,7 @@ class TimberbornAPI:
                     }
                 }
         """
-        r = requests.get(f"{self.base_url}/levers")
+        r = requests.get(f"{self.base_url}/levers")  # pylint: disable=missing-timeout
         data = r.json()
 
         now = time.monotonic()
@@ -168,7 +168,7 @@ class TimberbornAPI:
         name_enc = self.encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
-        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")
+        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
 
@@ -194,7 +194,7 @@ class TimberbornAPI:
             color_hex = color_hex[1:]
 
         name_enc = self.encode_name(name)
-        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")
+        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
 
@@ -226,7 +226,7 @@ class TimberbornAPI:
         if adapter and self._is_valid(adapter):
             return adapter
 
-        r = requests.get(f"{self.base_url}/adapters/{name_enc}")
+        r = requests.get(f"{self.base_url}/adapters/{name_enc}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
 
@@ -247,7 +247,7 @@ class TimberbornAPI:
                     "adapter 2": False
                 }
         """
-        r = requests.get(f"{self.base_url}/adapters")
+        r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
         data = r.json()
 
         now = time.monotonic()
@@ -325,7 +325,7 @@ class TimberbornAPI:
             for func in info_dict['funcs']:
                 func(adapter_name, current_state, info_dict['prev_state'])
 
-            self._listeners[adapter_name]['prev_state'] = current_state
+            info_dict['prev_state'] = current_state
 
     def activate_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
