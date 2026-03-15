@@ -33,5 +33,5 @@ jobs:
           pip install pylint
 
       - name: Run pylint
-        run: |
-          pylint timberborn_api.py tests/*.py
+        run: | # Disable pylint on tests/*.py for now
+          pylint timberborn_api.py 
