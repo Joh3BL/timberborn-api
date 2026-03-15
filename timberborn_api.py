@@ -24,10 +24,10 @@ class Lever:
     """
     def __init__(self, name):
         self.name = name
-    
+
     def __str__(self):
         return self.name
-    
+
     def __repr__(self):
         return f"L({self.name})"
 
@@ -38,21 +38,22 @@ class Adapter:
     """
     def __init__(self, name):
         self.name = name
-    
+
     def __str__(self):
         return self.name
-    
+
     def __repr__(self):
         return f"A({self.name})"
 
 ConditionItem = bool | str | Lever | Adapter
 
 class TimberbornAPI:
+    """Timberborn API client with caching, listeners, and logic modules."""
     def __init__(
-            self, 
+            self,
             base_url="http://localhost:8080/api",
             adapter_listener_port=8081,
-            cache_ttl=8, 
+            cache_ttl=8,
             on_any_change=None):
         """
         Initialize TimberbornAPI client.
@@ -234,7 +235,6 @@ class TimberbornAPI:
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
         """
-        #TODO: Updated to use OK response
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
 
@@ -327,13 +327,16 @@ class TimberbornAPI:
             # Output: State of Lever 1 changed from False to True
         
         Notes:
-            - Listeners are only triggered by changes detected in check_listeners(), which must be called
+            - Lever listeners are only triggered by changes detected in check_listeners(), 
+              which must be called, or use activate_lever_listener_loop().
             - Listeners are called in the order they were registered for a given lever.
             - You can call register_lever_listener multiple times for the same lever to register 
               multiple functions, and they will all be called when the state changes.
             - If the lever's state changes multiple times between calls to check_listeners(),
-              the listener functions won't be called if the final state is the same as the initial state.
-            - prev_state will be None for the first call to the listener, as prev_state is then unknown. 
+              the listener functions won't be called if the final state 
+              is the same as the initial state.
+            - prev_state will be None for the first call to the listener, 
+              as prev_state is then unknown. 
         """
 
         if name not in self._lever_listeners:
@@ -372,7 +375,7 @@ class TimberbornAPI:
 
         for lever_name, info_dict in self._lever_listeners.items():
             lever_data = data.get(lever_name)
-            
+
             current_state = lever_data["state"]
 
             if current_state is None:
@@ -384,11 +387,11 @@ class TimberbornAPI:
             if self.on_any_change is not None:
                 self.on_any_change(lever_name, current_state, info_dict['prev_state'])
 
-            for func in functions:
+            for func in info_dict['funcs']:
                 func(lever_name, current_state, info_dict['prev_state'])
 
             info_dict['prev_state']['prev_state'] = current_state
-    
+
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
         Initiates a while (not exit_condition(tick_count)) loop, that calls .check_listeners().
@@ -426,7 +429,7 @@ class TimberbornAPI:
                     time.sleep(sleep_time)
         except KeyboardInterrupt:
             pass
-    
+
     def initialize_adapter_prev_states(self):
         """
         Initialize all adapter listeners with their current state.
@@ -457,7 +460,7 @@ class TimberbornAPI:
                 func(adapter_name, current_state, prev_state)
 
             # Update prev_state to current API state
-            self._adapter_listeners[adapter_name]['prev_state'] = current_state
+            info_dict['prev_state'] = current_state
 
     def _trigger_adapter(self, adapter_name, current_state):
         """Call registered callbacks when an adapter changes state."""
