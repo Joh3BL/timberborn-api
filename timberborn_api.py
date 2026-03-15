@@ -1,6 +1,7 @@
 import time
 import requests
 import urllib.parse
+import logging # Used to silence Flask logs in _start_adapter_server
 
 from typing import Union
 from flask import Flask
@@ -422,6 +423,11 @@ class TimberbornAPI:
     def _start_adapter_server(self):
         """Starts a Flask server to listen for adapter GET requests."""
         app = Flask(__name__)
+
+        # Silence the Flask/Werkzeug info messages
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        app.logger.setLevel(logging.ERROR)
 
         @app.route("/on/<adapter_name>", methods=["GET"])
         def on_adapter(adapter_name):
