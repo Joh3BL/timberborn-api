@@ -448,7 +448,7 @@ class TimberbornAPI:
         return sum(results) % 2 == 1
 
 
-class Lever:
+class Lever:  # pylint: disable=too-few-public-methods
     """
     Wrapper to inicate string is a lever name.
     Currently only used for logic. 
@@ -456,7 +456,7 @@ class Lever:
     def __init__(self, name):
         self.name = name
 
-class Adapter:
+class Adapter:  # pylint: disable=too-few-public-methods
     """
     Wrapper to indicate string is an adapter name.
     Currently only used for logic. 
