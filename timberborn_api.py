@@ -212,6 +212,7 @@ class TimberbornAPI:
         Returns:
             bool: True if HTTP request returned status 200, False otherwise.
         """
+        #TODO: Updated to use OK response
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
         name_enc = self.encode_name(name)
