@@ -1,0 +1,69 @@
+import requests
+import urllib.parse
+
+BASE_URL = "http://localhost:8080/api"
+
+lever_name = "lever 1"
+adapter_name = "adapter 1"
+
+lever_enc = urllib.parse.quote(lever_name)
+adapter_enc = urllib.parse.quote(adapter_name)
+
+def call_endpoint(description, url, method="GET"):
+    print(f"\n--- {description} ---")
+    print(f"{method} {url}")
+
+    try:
+        if method == "GET":
+            r = requests.get(url)
+        elif method == "POST":
+            r = requests.post(url)
+        else:
+            raise ValueError("Unsupported method")
+
+        print("Status:", r.status_code)
+        print("Response:", repr(r.text))
+
+    except Exception as e:
+        print("ERROR:", e)
+
+
+# Lever endpoints
+call_endpoint(
+    "List levers",
+    f"{BASE_URL}/levers"
+)
+
+call_endpoint(
+    "Get lever",
+    f"{BASE_URL}/levers/{lever_enc}"
+)
+
+call_endpoint(
+    "Switch ON lever",
+    f"{BASE_URL}/switch-on/{lever_enc}",
+)
+
+call_endpoint(
+    "Switch OFF lever",
+    f"{BASE_URL}/switch-off/{lever_enc}",
+)
+
+call_endpoint(
+    "Set lever color",
+    f"{BASE_URL}/color/{lever_enc}/FFFFFF",
+)
+
+
+# Adapter endpoints
+call_endpoint(
+    "List adapters",
+    f"{BASE_URL}/adapters"
+)
+
+call_endpoint(
+    "Get adapter",
+    f"{BASE_URL}/adapters/{adapter_enc}"
+)
+
+print("\nFinished testing all endpoints.")

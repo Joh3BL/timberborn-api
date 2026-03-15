@@ -1,4 +1,7 @@
-import time
+# Basic tests for the Timberborn API client. 
+# These tests assume that the Timberborn API server is running and has a known state
+# or that the fake server is running with the expected data.
+
 from timberborn_api import TimberbornAPI
 
 api = TimberbornAPI(base_url="http://localhost:8080/api")

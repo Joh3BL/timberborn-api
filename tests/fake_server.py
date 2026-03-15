@@ -1,3 +1,4 @@
+# Creates a fake Flask server to test the API client agains. Runs in github actions
 from flask import Flask, jsonify
 
 app = Flask(__name__)
