@@ -1,10 +1,23 @@
+"""
+Timberborn API client for Python.
+Read README.md for usage instructions.
+Examples can be found in the examples/ folder.
+Authors:
+  - Joh3BL
+
+"""
+
+from typing import Union
+import urllib.parse
 import time
 import requests
-import urllib.parse
-from typing import Union
-
 
 class TimberbornAPI:
+    """
+    Main API client class for interacting with the Timberborn API.
+    Provides methods to get and set levers, get adapters, and register listeners.
+    Call TimberbornAPI.methods() to get a list of available methods.
+    """
     def __init__(self, base_url="http://localhost:8080/api", cache_ttl=8, on_any_change=None):
         """
         Initialize TimberbornAPI client.
@@ -28,6 +41,7 @@ class TimberbornAPI:
     # Helper to provide available methods
     @classmethod
     def methods(cls):
+        """Returns a list of available method names for the TimberbornAPI class."""
         import inspect
         return [
             name for name, func in inspect.getmembers(cls, inspect.isfunction)
@@ -61,7 +75,7 @@ class TimberbornAPI:
     def _check_response(r):
         if r.status_code == 404:
             raise RuntimeError(r.text)
-        elif r.status_code != 200:
+        if r.status_code != 200:
             raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
 
     # Lever methods
@@ -342,8 +356,6 @@ class TimberbornAPI:
 
         try:
             while not exit_condition(tick):
-                start = time.monotonic()
-
                 self.check_listeners()
                 tick += 1
 
@@ -353,7 +365,7 @@ class TimberbornAPI:
                 if sleep_time > 0:
                     time.sleep(sleep_time)
         except KeyboardInterrupt:
-            return
+            pass
 
     # Logic modules
     ConditionItem = Union[bool, str, 'Lever', 'Adapter']
@@ -366,14 +378,13 @@ class TimberbornAPI:
         """
         if isinstance(arg, bool):
             return arg
-        elif isinstance(arg, str):
+        if isinstance(arg, str):
             return self.get_adapter(arg)['state']
-        elif isinstance(arg, Lever):
+        if isinstance(arg, Lever):
             return self.get_lever(arg.name)['state']
-        elif isinstance(arg, Adapter):
+        if isinstance(arg, Adapter):
             return self.get_adapter(arg.name)['state']
-        else:
-            raise TypeError(f"Unknown condition type {arg}")
+        raise TypeError(f"Unknown condition type {arg}")
 
     def not_(self, *args):
         """
