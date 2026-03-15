@@ -7,15 +7,14 @@ Authors:
 
 """
 
+from flask import Flask
+from threading import Thread
+import urllib.parse
+
 import inspect
 import time
 import requests
 import logging # Used to silence Flask logs in _start_adapter_server
-
-from typing import Union
-import urllib.parse
-from flask import Flask
-from threading import Thread
 
 class Lever:
     """
@@ -47,6 +46,7 @@ class Adapter:
 
 ConditionItem = bool | str | Lever | Adapter
 
+# pylint: disable=too-many-instance-attributes
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
     def __init__(
