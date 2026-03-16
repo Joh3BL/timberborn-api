@@ -28,11 +28,11 @@ def test_set_color():
 def test_list_adapters():
     adapters = api.list_adapters()
     assert "adapter 1" in adapters
-    assert adapters["adapter 1"]["state"] is True
+    assert adapters["adapter 1"] is True
 
 def test_get_adapter():
     adapter = api.get_adapter("adapter 2")
-    assert adapter["state"] is False
+    assert adapter is False
 
 def run_test(test_func):
     try:
