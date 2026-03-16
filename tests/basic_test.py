@@ -32,7 +32,7 @@ def test_list_adapters():
 
 def test_get_adapter():
     adapter = api.get_adapter("adapter 2")
-    assert adapter is False
+    assert adapter['state'] is False
 
 def run_test(test_func):
     try:
