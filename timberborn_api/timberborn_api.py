@@ -1,3 +1,12 @@
+"""
+Timberborn API client for Python.
+Read README.md for usage instructions.
+Examples can be found in the examples/ folder.
+Authors:
+  - Joh3BL
+
+"""
+
 from threading import Thread
 from typing import Union
 import urllib.parse
