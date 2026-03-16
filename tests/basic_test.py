@@ -2,6 +2,7 @@
 # These tests assume that the Timberborn API server is running and has a known state
 # or that the fake server is running with the expected data.
 
+import sys
 from timberborn_api import TimberbornAPI
 
 api = TimberbornAPI(base_url="http://localhost:8080/api")
@@ -65,3 +66,4 @@ if __name__ == "__main__":
         print("All basic tests passed!")
     else:
         print(f"{failiures} test(s) failed. Please check the output above for details.")
+        sys.exit(1)
