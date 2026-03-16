@@ -14,51 +14,50 @@ ADAPTERS = {
     "adapter 2": {"name": "adapter 2", "state": False}
 }
 
-@app.route("/api/levers", methods=["GET"])
+@app.route("/api/levers", methods=["GET", "POST"])
 def list_levers():
     return jsonify(list(LEVERS.values()))
 
-@app.route("/api/levers/<name>", methods=["GET"])
+@app.route("/api/levers/<name>", methods=["GET", "POST"])
 def get_lever(name):
     lever = LEVERS.get(name)
     if lever:
         return jsonify(lever)
-    return jsonify({"error": "Not found"}), 404
+    return "HTTP Lever not found", 404
 
-@app.route("/api/adapters", methods=["GET"])
+@app.route("/api/adapters", methods=["GET", "POST"])
 def list_adapters():
     return jsonify(list(ADAPTERS.values()))
 
-@app.route("/api/adapters/<name>", methods=["GET"])
+@app.route("/api/adapters/<name>", methods=["GET", "POST"])
 def get_adapter(name):
     adapter = ADAPTERS.get(name)
     if adapter:
         return jsonify(adapter)
-    return jsonify({"error": "Not found"}), 404
+    return "HTTP Adapter not found", 404
 
-@app.route("/api/switch-on/<name>", methods=["POST"])
+@app.route("/api/switch-on/<name>", methods=["GET", "POST"])
 def switch_on(name):
     lever = LEVERS.get(name)
     if lever:
         lever["state"] = True
-        return jsonify(lever)
-    return jsonify({"error": "Not found"}), 404
+        return "OK", 200
+    return "HTTP Lever not found", 404
 
-@app.route("/api/switch-off/<name>", methods=["POST"])
+@app.route("/api/switch-off/<name>", methods=["GET", "POST"])
 def switch_off(name):
     lever = LEVERS.get(name)
     if lever:
         lever["state"] = False
-        return jsonify(lever)
-    return jsonify({"error": "Not found"}), 404
+        return "OK", 200
+    return "HTTP Lever not found", 404
 
-@app.route("/api/color/<name>/<color>", methods=["POST"])
-def set_color(name, color):
+@app.route("/api/color/<name>/<color>", methods=["GET", "POST"])
+def set_color(name, _):
     lever = LEVERS.get(name)
     if lever:
-        lever["color"] = color
-        return jsonify({"status": "ok"})
-    return jsonify({"error": "Not found"}), 404
+        return "OK", 200
+    return "HTTP Lever not found", 404
 
 if __name__ == "__main__":
     app.run(port=8080)

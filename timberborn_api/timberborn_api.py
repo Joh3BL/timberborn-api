@@ -391,7 +391,7 @@ class TimberbornAPI:
             for func in info_dict['funcs']:
                 func(lever_name, current_state, info_dict['prev_state'])
 
-            info_dict['prev_state']['prev_state'] = current_state
+            info_dict['prev_state'] = current_state
 
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
