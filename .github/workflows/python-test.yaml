@@ -32,6 +32,6 @@ jobs:
           python tests/fake_server.py &
           sleep 2
 
-      - name: Run basic tests
+      - name: Run basic unittests
         run: |
           python -m unittest discover
