@@ -5,7 +5,7 @@
 import sys
 from timberborn_api import TimberbornAPI
 
-api = TimberbornAPI(base_url="http://localhost:8080/api")
+api = TimberbornAPI()
 
 def test_list_levers():
     levers = api.list_levers()
