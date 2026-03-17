@@ -7,7 +7,7 @@ Authors:
 
 """
 
-from threading import Thread
+from threading import Thread, Lock
 from typing import Union
 import urllib.parse
 import inspect
@@ -51,6 +51,8 @@ class TimberbornAPI:
         self.cache_ttl = cache_ttl
         self.on_any_change = on_any_change
 
+        self._lock = Lock()
+
         self._lever_cache = {}
         self._adapter_cache = {}
         self._lever_listeners = {}
@@ -81,7 +83,7 @@ class TimberbornAPI:
         
         @property
         def spring_return(self):
-            return self._api._get_lever_dict(self.name)['state']
+            return self._api._get_lever_dict(self.name)['springReturn']
 
         def switch_on(self):
             """Switch the lever on via the API."""
@@ -163,7 +165,8 @@ class TimberbornAPI:
     def _store(self, cache, obj):
         obj = obj.copy()
         obj["_ts"] = time.monotonic()
-        cache[obj["name"]] = obj
+        with self._lock:
+            cache[obj["name"]] = obj
         return obj
 
     @staticmethod
@@ -244,7 +247,10 @@ class TimberbornAPI:
         for lever in data:
             lever_copy = lever.copy()
             lever_copy["_ts"] = now
-            self._lever_cache[lever["name"]] = lever_copy
+
+            with self._lock:
+                self._lever_cache[lever["name"]] = lever_copy
+
             result[lever["name"]] = self.Lever(
                 api=self,
                 name=lever["name"]
@@ -419,10 +425,11 @@ class TimberbornAPI:
               as prev_state is then unknown. 
         """
 
-        if name not in self._lever_listeners:
-            self._lever_listeners[name] = {'prev_state': None, 'funcs': [func]}
-        else:
-            self._lever_listeners[name]['funcs'].append(func)
+        with self._lock:
+            if name not in self._lever_listeners:
+                self._lever_listeners[name] = {'prev_state': None, 'funcs': [func]}
+            else:
+                self._lever_listeners[name]['funcs'].append(func)
 
     def register_adapter_listener(self, name, func):
         """
@@ -435,10 +442,11 @@ class TimberbornAPI:
         This one however works with Timberborns API adapter updates,
         so it might be more responsive, reliable and efficient than lever listeners.
         """
-        if name not in self._adapter_listeners:
-            self._adapter_listeners[name] = {'funcs': [func], 'prev_state': None}
-        else:
-            self._adapter_listeners[name]['funcs'].append(func)
+        with self._lock:
+            if name not in self._adapter_listeners:
+                self._adapter_listeners[name] = {'funcs': [func], 'prev_state': None}
+            else:
+                self._adapter_listeners[name]['funcs'].append(func)
 
     def check_lever_listeners(self):
         """
@@ -546,23 +554,25 @@ class TimberbornAPI:
 
     def _trigger_adapter(self, adapter_name, current_state):
         """Call registered callbacks when an adapter changes state."""
-        if adapter_name not in self._adapter_listeners:
-            return
+        with self._lock:
+            if adapter_name not in self._adapter_listeners:
+                return
 
-        prev_state = self._adapter_listeners[adapter_name]['prev_state']
-        if prev_state == current_state:
-            return
+            prev_state = self._adapter_listeners[adapter_name]['prev_state']
+            if prev_state == current_state:
+                return
+
+            funcs = list(self._adapter_listeners[adapter_name]['funcs'])
+            self._adapter_listeners[adapter_name]['prev_state'] = current_state
+        
 
         # Optional global hook
         if self.on_any_change is not None:
             self.on_any_change(adapter_name, current_state, prev_state)
 
         # Call all registered functions
-        for func in self._adapter_listeners[adapter_name]['funcs']:
+        for func in funcs:
             func(adapter_name, current_state, prev_state)
-
-        # Update previous state
-        self._adapter_listeners[adapter_name]['prev_state'] = current_state
 
     def _start_adapter_server(self):
         """Starts a Flask server to listen for adapter GET requests."""
@@ -652,7 +662,7 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        return = any(self._turn_to_bool(arg) for arg in args)
+        return any(self._turn_to_bool(arg) for arg in args)
 
     def xor_(self, *args) -> bool:
         """
