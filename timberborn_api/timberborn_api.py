@@ -72,7 +72,7 @@ class TimberbornAPI:
         @property
         def state(self):
             """Current state of the lever (True = on, False = off)."""
-            return self._get_lever_dict(self.name)['state']
+            return self._api._get_lever_dict(self.name)['state']
 
         @state.setter
         def state(self, value):
@@ -81,7 +81,7 @@ class TimberbornAPI:
         
         @property
         def spring_return(self):
-            return self._get_lever_dict(self.name)['state']
+            return self._api._get_lever_dict(self.name)['state']
 
         def switch_on(self):
             """Switch the lever on via the API."""
@@ -93,7 +93,6 @@ class TimberbornAPI:
 
         def toggle(self):
             """Toggle the lever state via the API."""
-            self._api.set_lever(self.name, not self.state)
             self.state = not self.state
 
         def set_color(self, color_hex: str):
@@ -104,7 +103,7 @@ class TimberbornAPI:
             return self.name
 
         def __repr__(self):
-            return f"L({self.name}, state={self.state}, spring_return={self.spring_return})"
+            return f"L({self.name})"
 
     class Adapter:
         """
@@ -123,7 +122,7 @@ class TimberbornAPI:
             return self.name
 
         def __repr__(self):
-            return f"A({self.name}, state={self.state})"
+            return f"A({self.name})"
 
     # Convenience wrappers for users
     def L(self, name):  # pylint: disable=C0103
@@ -192,9 +191,9 @@ class TimberbornAPI:
         lever = self._lever_cache.get(name)
 
         if lever and self._is_valid(lever):
-            return lever
+            return lever.copy()
 
-        r = requests.get(f"{self.base_url}/levers/{name_enc}")  # pylint: disable=missing-timeout
+        r = requests.get(f"{self.base_url}/levers/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -236,7 +235,7 @@ class TimberbornAPI:
                     "lever 2": Lever(name="lever 2", state=False, spring_return=True)
                 }
         """
-        r = requests.get(f"{self.base_url}/levers")  # pylint: disable=missing-timeout
+        r = requests.get(f"{self.base_url}/levers", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -269,12 +268,12 @@ class TimberbornAPI:
         """
         lever = self._get_lever_dict(name)
         if lever.get("state") == state and not lever.get('springReturn'):
-            return lever
+            return self.Lever(api=self, name=name)
 
         name_enc = self._encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
-        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
+        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -294,7 +293,7 @@ class TimberbornAPI:
             color_hex (str): Color hex string in format "#RRGGBB" or "RRGGBB".
 
         Returns:
-            bool: True if the color was successfully set, e.i, the code executed.
+            bool: True if the color was successfully set, i.e. the code executed.
         
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
@@ -303,7 +302,7 @@ class TimberbornAPI:
             color_hex = color_hex[1:]
 
         name_enc = self._encode_name(name)
-        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
+        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}", timeout=5)
 
         self._check_response(r)
 
@@ -326,9 +325,9 @@ class TimberbornAPI:
         adapter = self._adapter_cache.get(name)
 
         if adapter and self._is_valid(adapter):
-            return adapter
+            return adapter.copy()
 
-        r = requests.get(f"{self.base_url}/adapters/{name_enc}")  # pylint: disable=missing-timeout
+        r = requests.get(f"{self.base_url}/adapters/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -370,7 +369,7 @@ class TimberbornAPI:
                     "adapter 2": Adapter(name="adapter 2", state=False)
                 }
         """
-        r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
+        r = requests.get(f"{self.base_url}/adapters", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -382,8 +381,7 @@ class TimberbornAPI:
             self._adapter_cache[adapter["name"]] = adapter_copy
             result[adapter["name"]] = self.Adapter(
                 api=self,
-                name=adapter["name"],
-                state=adapter["state"]
+                name=adapter["name"]
             )
 
         return result
@@ -532,7 +530,8 @@ class TimberbornAPI:
 
         for adapter_name, info_dict in self._adapter_listeners.items():
             prev_state = info_dict.get('prev_state', None)
-            current_state = current_adapters.get(adapter_name)
+            adapt_obj = current_adapters.get(adapter_name)
+            current_state = adapt_obj.state if adapt_obj else None
 
             if current_state is None:
                 # Adapter not found, skip
@@ -604,9 +603,9 @@ class TimberbornAPI:
         if isinstance(arg, str):
             return self.get_adapter(arg).state
         if isinstance(arg, TimberbornAPI.Lever):
-            return self.get_lever(arg.name).state
+            return arg.state
         if isinstance(arg, TimberbornAPI.Adapter):
-            return self.get_adapter(arg.name).state
+            return arg.state
         raise TypeError(f"Unsupported condition item type: {type(arg)}")
 
     def not_(self, *args):
@@ -640,8 +639,7 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return all(results)
+        return all(self._turn_to_bool(arg) for arg in args)
 
     def or_(self, *args) -> bool:
         """
@@ -654,8 +652,7 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return any(results)
+        return = any(self._turn_to_bool(arg) for arg in args)
 
     def xor_(self, *args) -> bool:
         """
@@ -669,5 +666,4 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return sum(results) % 2 == 1
+        return sum(self._turn_to_bool(arg) for arg in args) % 2 == 1
