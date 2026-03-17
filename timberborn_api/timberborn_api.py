@@ -126,7 +126,7 @@ class TimberbornAPI:
 
     # Utility helpers
     @staticmethod
-    def encode_name(name: str) -> str:
+    def _encode_name(name: str) -> str:
         """
         URL-encode a name for HTTP requests.
 
@@ -158,7 +158,7 @@ class TimberbornAPI:
     # Lever methods
     def _get_lever_dict(self, name):
         """Helper to get lever as a dict, used internally"""
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         lever = self._lever_cache.get(name)
 
         if lever and self._is_valid(lever):
@@ -241,11 +241,11 @@ class TimberbornAPI:
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
         """
-        lever = self.get_lever(name)
+        lever = self._get_lever_dict(name)
         if lever.get("state") == state:
             return lever
 
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
         r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
@@ -278,7 +278,7 @@ class TimberbornAPI:
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
 
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
@@ -287,7 +287,7 @@ class TimberbornAPI:
 
     # Adapter methods
     def _get_adapter_dict(self, name):
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         adapter = self._adapter_cache.get(name)
 
         if adapter and self._is_valid(adapter):
@@ -309,7 +309,7 @@ class TimberbornAPI:
 
         Returns:
             Adapter: A Adapter object with attributes like name and state.
-                Ccached copy is used if TTL has not expired.
+            Cached copy is used if TTL has not expired.
 
         Raises:
             RuntimeError: If the adapter does not exist on the server or the request fails.
@@ -332,9 +332,8 @@ class TimberbornAPI:
         Returns:
             dict: Dictionary of adapter objects, each like:
                 {
-                    # Template: [adapter name]: 'state'
-                    "adapter 1": True,
-                    "adapter 2": False
+                    "adapter 1": Adapter(name="adapter 1", state=True),
+                    "adapter 2": Adapter(name="adapter 2", state=False)
                 }
         """
         r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
@@ -347,7 +346,11 @@ class TimberbornAPI:
             adapter_copy = adapter.copy()
             adapter_copy["_ts"] = now
             self._adapter_cache[adapter["name"]] = adapter_copy
-            result[adapter["name"]] = adapter["state"]
+            result[adapter["name"]] = self.Adapter(
+                api=self,
+                name=adapter["name"],
+                state=adapter["state"]
+            )
 
         return result
 
@@ -550,7 +553,7 @@ class TimberbornAPI:
             return "OK", 200
 
         def run():
-            app.run(port=self.adapter_port, debug=False, use_reloader=False)
+            app.run(port=self.adapter_port, debug=False, use_reloader=False, threaded=True)
 
         thread = Thread(target=run, daemon=True)
         thread.start()
@@ -570,6 +573,7 @@ class TimberbornAPI:
             return self.get_lever(arg.name).state
         if isinstance(arg, TimberbornAPI.Adapter):
             return self.get_adapter(arg.name).state
+        raise TypeError(f"Unsupported condition item type: {type(arg)}")
 
     def not_(self, *args):
         """
