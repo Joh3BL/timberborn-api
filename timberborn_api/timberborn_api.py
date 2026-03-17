@@ -71,17 +71,38 @@ class TimberbornAPI:
             self.state = state
             self.spring_return = spring_return
 
+        @property
+        def state(self):
+            """Current state of the lever (True = on, False = off)."""
+            return self._state
+
+        @state.setter
+        def state(self, value):
+            """Set the lever state via the API when assigned to."""
+            if hasattr(self, "_state") and self._state == value:
+                return  # No change, do nothing
+            self._state = value
+            self._api.set_lever(self.name, value)
+
         def switch_on(self):
+            """Switch the lever on via the API."""
             if not self.state or self.spring_return:
                 self._api.set_lever(self.name, True)
                 self.state = True
 
         def switch_off(self):
+            """Switch the lever off via the API."""
             if self.state or self.spring_return:
                 self._api.set_lever(self.name, False)
                 self.state = False
 
+        def toggle(self):
+            """Toggle the lever state via the API."""
+            self._api.set_lever(self.name, not self.state)
+            self.state = not self.state
+
         def set_color(self, color_hex: str):
+            """Set the lever color via the API."""
             self._api.set_color(self.name, color_hex)
 
         def __str__(self):
@@ -107,11 +128,11 @@ class TimberbornAPI:
             return f"A({self.name}, state={self.state})"
 
     # Convenience wrappers for users
-    def L(self, name):
+    def L(self, name):  # pylint: disable=C0103
         """Convenience wrapper to indicate a lever name."""
         return self.get_lever(name)
 
-    def A(self, name):
+    def A(self, name):  # pylint: disable=C0103
         """Convenience wrapper to indicate an adapter name."""
         return self.get_adapter(name)
 
@@ -314,7 +335,7 @@ class TimberbornAPI:
         Raises:
             RuntimeError: If the adapter does not exist on the server or the request fails.
         """
-        
+
         adapter_dict = self._get_adapter_dict(name)
 
         return self.Adapter(
@@ -637,4 +658,3 @@ class TimberbornAPI:
         """
         results = [self._turn_to_bool(arg) for arg in args]
         return sum(results) % 2 == 1
-
