@@ -20,7 +20,7 @@ import requests
 
 ConditionItem = Union[bool, str, "TimberbornAPI.Lever", "TimberbornAPI.Adapter"]
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=R0913,R0917,R0903,W0202
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
 
@@ -69,7 +69,7 @@ class TimberbornAPI:
                     if you don't set the previous value to True. The higher it is, the longer
                     delay between ticks, but the program will run faster.
             """
-            
+
             self.base_url = base_url.rstrip("/")
             self.adapter_port = adapter_listener_port
             self.cache_ttl = cache_ttl
@@ -90,7 +90,7 @@ class TimberbornAPI:
         """
         if config is not None and not isinstance(config, TimberbornAPI.Config):
             raise TypeError("config must be a TImberbornAPI.Config() object")
-        
+
         if config is None:
             config = TimberbornAPI.Config()
         self._config = config
@@ -139,9 +139,10 @@ class TimberbornAPI:
         def state(self, value):
             """Set the lever state via the API when assigned to."""
             self._api.set_lever(self.name, value)
-        
+
         @property
         def spring_return(self):
+            """Returns the Lever's spring_return state"""
             return self._api._get_lever_dict(self.name)['springReturn']
 
         def switch_on(self):
@@ -150,7 +151,7 @@ class TimberbornAPI:
 
         def switch_off(self):
             """Switch the lever off via the API."""
-            self._api.set_lever(self.name, False)   
+            self._api.set_lever(self.name, False)
 
         def toggle(self):
             """Toggle the lever state via the API."""
@@ -174,9 +175,10 @@ class TimberbornAPI:
         def __init__(self, api, name):
             self._api = api
             self.name = name
-        
+
         @property
         def state(self):
+            """Returns the Adapter's state"""
             return self._api._get_adapter_dict(self.name)['state']
 
         def __str__(self):
@@ -344,7 +346,7 @@ class TimberbornAPI:
         self._check_response(r)
 
         lever["state"] = state
-        returned = self._store(self._lever_cache, lever)
+        self._store(self._lever_cache, lever)
         return self.Lever(
             api=self,
             name=name
@@ -624,7 +626,6 @@ class TimberbornAPI:
 
             funcs = list(self._adapter_listeners[adapter_name]['funcs'])
             self._adapter_listeners[adapter_name]['prev_state'] = current_state
-        
 
         # Optional global hook
         if self.on_any_change is not None:
@@ -675,7 +676,7 @@ class TimberbornAPI:
                 sleep_time = next_tick_time - time.monotonic()
                 if sleep_time > 0:
                     time.sleep(sleep_time)
-        
+
         t = Thread(target=loop, daemon=True)
         t.start()
         self._lever_listener_thread = t
