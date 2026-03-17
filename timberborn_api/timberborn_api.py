@@ -160,7 +160,7 @@ class TimberbornAPI:
 
         def set_color(self, color_hex: str):
             """Set the lever color via the API."""
-            self._api.set_color(self.name, color_hex)
+            return self._api.set_color(self.name, color_hex)
 
         def __str__(self):
             return self.name
