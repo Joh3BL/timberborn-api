@@ -34,4 +34,4 @@ jobs:
 
       - name: Run basic unittests
         run: |
-          run: python -m unittest discover -s tests
+          python -m unittest discover -s tests
