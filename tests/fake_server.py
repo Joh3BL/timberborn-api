@@ -19,7 +19,7 @@ default_adapters = {
 
 LEVERS = default_levers.copy()
 
-ADAPTERS = default_adapter.copy()
+ADAPTERS = default_adapters.copy()
 
 @app.route("/test/reset", methods=["POST"])
 def reset():
@@ -75,4 +75,4 @@ def set_color(name, color):
     return "HTTP Lever not found", 404
 
 if __name__ == "__main__":
-    app.run(port=8080)
+    app.run(port=8080, host="127.0.0.1")
