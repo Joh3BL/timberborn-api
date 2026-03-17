@@ -1,10 +1,11 @@
-name: Python Tests
+name: Test TimberbornAPI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, "feature/*", "dev" ]
   pull_request:
+    branches: [ main ]
+name: Python Tests
 
 jobs:
   test:
@@ -31,7 +32,7 @@ jobs:
       - name: Start fake Timberborn server
         run: |
           python tests/fake_server.py &
-          sleep 10  # Give server enough time to bind to 8080
+          sleep 5  # Give server enough time to bind to 8080
 
       - name: Run tests
         run: |
