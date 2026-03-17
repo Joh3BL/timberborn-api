@@ -1,3 +1,12 @@
+"""
+Timberborn API client for Python.
+Read README.md for usage instructions.
+Examples can be found in the examples/ folder.
+Authors:
+  - Joh3BL
+
+"""
+
 from threading import Thread
 from typing import Union
 import urllib.parse
@@ -8,39 +17,13 @@ import logging  # Used to silence Flask logs in _start_adapter_server
 from flask import Flask
 import requests
 
-class Lever:
-    """
-    Wrapper to indicate string is a lever name.
-    Currently only used for logic. 
-    """
-    def __init__(self, name):
-        self.name = name
 
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return f"L({self.name})"
-
-class Adapter:
-    """
-    Wrapper to indicate string is an adapter name.
-    Currently only used for logic. 
-    """
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return f"A({self.name})"
-
-ConditionItem = Union[bool, str, Lever, Adapter]
+ConditionItem = Union[bool, str, "TimberbornAPI.Lever", "TimberbornAPI.Adapter"]
 
 # pylint: disable=too-many-instance-attributes
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
+
     def __init__(
             self,
             base_url="http://localhost:8080/api",
@@ -75,6 +58,84 @@ class TimberbornAPI:
 
         self._start_adapter_server() # Start the background Flask server for adapters
 
+    # Wrapper classes for levers and adapters
+    class Lever:
+        """
+        Object that indicates a name is a lever, or can be used in OOP
+        to switch on and off levers and set their color.
+        Result when get_lever or list_levers is called or when L() is used.
+        """
+        def __init__(self, api, name, state, spring_return):
+            self._api = api
+            self.name = name
+            self._state = state
+            self.spring_return = spring_return
+
+        @property
+        def state(self):
+            """Current state of the lever (True = on, False = off)."""
+            return self._state
+
+        @state.setter
+        def state(self, value):
+            """Set the lever state via the API when assigned to."""
+            if hasattr(self, "_state") and self._state == value:
+                return  # No change, do nothing
+            self._state = value
+            self._api.set_lever(self.name, value)
+
+        def switch_on(self):
+            """Switch the lever on via the API."""
+            if not self.state or self.spring_return:
+                self._api.set_lever(self.name, True)
+                self.state = True
+
+        def switch_off(self):
+            """Switch the lever off via the API."""
+            if self.state or self.spring_return:
+                self._api.set_lever(self.name, False)
+                self.state = False
+
+        def toggle(self):
+            """Toggle the lever state via the API."""
+            self._api.set_lever(self.name, not self.state)
+            self.state = not self.state
+
+        def set_color(self, color_hex: str):
+            """Set the lever color via the API."""
+            self._api.set_color(self.name, color_hex)
+
+        def __str__(self):
+            return self.name
+
+        def __repr__(self):
+            return f"L({self.name}, state={self.state}, spring_return={self.spring_return})"
+
+    class Adapter:
+        """
+        Object that indicate a name is an adapter.
+        Result when get_adapter or list_adapters is called or when A() is used.
+        """
+        def __init__(self, api, name, state):
+            self._api = api
+            self.name = name
+            self.state = state
+
+        def __str__(self):
+            return self.name
+
+        def __repr__(self):
+            return f"A({self.name}, state={self.state})"
+
+    # Convenience wrappers for users
+    def L(self, name):  # pylint: disable=C0103
+        """Convenience wrapper to indicate a lever name."""
+        return self.get_lever(name)
+
+    def A(self, name):  # pylint: disable=C0103
+        """Convenience wrapper to indicate an adapter name."""
+        return self.get_adapter(name)
+
     # Helper to provide available methods
     @classmethod
     def methods(cls):
@@ -86,7 +147,7 @@ class TimberbornAPI:
 
     # Utility helpers
     @staticmethod
-    def encode_name(name: str) -> str:
+    def _encode_name(name: str) -> str:
         """
         URL-encode a name for HTTP requests.
 
@@ -116,27 +177,9 @@ class TimberbornAPI:
             raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
 
     # Lever methods
-    def get_lever(self, name):
-        """
-        Get a lever by name, using cached data if available and recent.
-
-        Args:
-            name (str): Name of the lever (e.g., "lever 1").
-
-        Returns:
-            dict: Lever object containing at least:
-                {
-                    "name": "lever 1",
-                    "state": True,
-                    "springReturn": False,
-                    "_ts": 1710234512.483
-                }
-            Cached copy is used if TTL has not expired.
-        
-        Raises:
-            RuntimeError: If the lever does not exist on the server or the request fails.
-        """
-        name_enc = self.encode_name(name)
+    def _get_lever_dict(self, name):
+        """Helper to get lever as a dict, used internally"""
+        name_enc = self._encode_name(name)
         lever = self._lever_cache.get(name)
 
         if lever and self._is_valid(lever):
@@ -149,6 +192,30 @@ class TimberbornAPI:
         lever = r.json()
         return self._store(self._lever_cache, lever)
 
+    def get_lever(self, name):
+        """
+        Get a lever by name, using cached data if available and recent.
+
+        Args:
+            name (str): Name of the lever (e.g., "lever 1").
+
+        Returns:
+            Lever: A Lever object with attributes like name, state, and spring_return.
+            Cached copy is used if TTL has not expired.
+        
+        Raises:
+            RuntimeError: If the lever does not exist on the server or the request fails.
+        """
+
+        lever_dict = self._get_lever_dict(name)
+
+        return self.Lever(
+            api=self,
+            name=lever_dict["name"],
+            state=lever_dict["state"],
+            spring_return=lever_dict["springReturn"]
+        )
+
     def list_levers(self):
         """
         Fetch the full list of levers from the API as a dict.
@@ -156,16 +223,10 @@ class TimberbornAPI:
         This always makes an HTTP request and refreshes the internal cache.
 
         Returns:
-            dict: Dictionary of lever objects, each like:
+            dict: Dictionary of Lever objects, each like:
                 {
-                    "lever 1": {
-                        "state": True, 
-                        "springReturn": False
-                    },
-                    "lever 2": {
-                        "state": False,
-                        "springReturn": False
-                    }
+                    "lever 1": Lever(name="lever 1", state=True, spring_return=False),
+                    "lever 2": Lever(name="lever 2", state=False, spring_return=True)
                 }
         """
         r = requests.get(f"{self.base_url}/levers")  # pylint: disable=missing-timeout
@@ -178,10 +239,12 @@ class TimberbornAPI:
             lever_copy = lever.copy()
             lever_copy["_ts"] = now
             self._lever_cache[lever["name"]] = lever_copy
-            result[lever["name"]] = {
-                "state": lever["state"],
-                "springReturn": lever["springReturn"]
-            }
+            result[lever["name"]] = self.Lever(
+                api=self,
+                name=lever["name"],
+                state=lever["state"],
+                spring_return=lever["springReturn"]
+            )
 
         return result
 
@@ -194,16 +257,16 @@ class TimberbornAPI:
             state (bool): Desired lever state (True = on, False = off).
 
         Returns:
-            dict: Updated lever object.
+            Lever: Updated lever object.
 
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
         """
-        lever = self.get_lever(name)
+        lever = self._get_lever_dict(name)
         if lever.get("state") == state:
             return lever
 
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
         r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
@@ -211,7 +274,13 @@ class TimberbornAPI:
         self._check_response(r)
 
         lever["state"] = state
-        return self._store(self._lever_cache, lever)
+        returned = self._store(self._lever_cache, lever)
+        return self.Lever(
+            api=self,
+            name=name,
+            state=returned["state"],
+            spring_return=returned["springReturn"]
+        )
 
     def set_color(self, name, color_hex: str):
         """
@@ -222,7 +291,7 @@ class TimberbornAPI:
             color_hex (str): Color hex string in format "#RRGGBB" or "RRGGBB".
 
         Returns:
-            bool: True if HTTP request returned status 200, False otherwise.
+            bool: True if the color was successfully set, e.i, the code executed.
         
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
@@ -230,7 +299,7 @@ class TimberbornAPI:
         if color_hex.startswith("#"):
             color_hex = color_hex[1:]
 
-        name_enc = self.encode_name(name)
+        name_enc = self._encode_name(name)
         r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
 
         self._check_response(r)
@@ -238,26 +307,8 @@ class TimberbornAPI:
         return True
 
     # Adapter methods
-    def get_adapter(self, name):
-        """
-        Get an adapter by name, using cached data if available and recent.
-
-        Args:
-            name (str): Name of the adapter (e.g., "adapter 1").
-
-        Returns:
-            dict: Adapter object, cached copy is used if TTL has not expired.
-                Example:
-                {
-                    "name": "adapter 1",
-                    "state": True,
-                    "_ts": 1710234512.483
-                }
-        
-        Raises:
-            RuntimeError: If the adapter does not exist on the server or the request fails.
-        """
-        name_enc = self.encode_name(name)
+    def _get_adapter_dict(self, name):
+        name_enc = self._encode_name(name)
         adapter = self._adapter_cache.get(name)
 
         if adapter and self._is_valid(adapter):
@@ -270,6 +321,29 @@ class TimberbornAPI:
         adapter = r.json()
         return self._store(self._adapter_cache, adapter)
 
+    def get_adapter(self, name):
+        """
+        Get an adapter by name, using cached data if available and recent.
+
+        Args:
+            name (str): Name of the adapter (e.g., "adapter 1").
+
+        Returns:
+            Adapter: A Adapter object with attributes like name and state.
+            Cached copy is used if TTL has not expired.
+
+        Raises:
+            RuntimeError: If the adapter does not exist on the server or the request fails.
+        """
+
+        adapter_dict = self._get_adapter_dict(name)
+
+        return self.Adapter(
+            api=self,
+            name=adapter_dict["name"],
+            state=adapter_dict["state"]
+        )
+
     def list_adapters(self):
         """
         Fetch the full list of adapters from the API as a dict.
@@ -279,9 +353,8 @@ class TimberbornAPI:
         Returns:
             dict: Dictionary of adapter objects, each like:
                 {
-                    # Template: [adapter name]: 'state'
-                    "adapter 1": True,
-                    "adapter 2": False
+                    "adapter 1": Adapter(name="adapter 1", state=True),
+                    "adapter 2": Adapter(name="adapter 2", state=False)
                 }
         """
         r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
@@ -294,7 +367,11 @@ class TimberbornAPI:
             adapter_copy = adapter.copy()
             adapter_copy["_ts"] = now
             self._adapter_cache[adapter["name"]] = adapter_copy
-            result[adapter["name"]] = adapter["state"]
+            result[adapter["name"]] = self.Adapter(
+                api=self,
+                name=adapter["name"],
+                state=adapter["state"]
+            )
 
         return result
 
@@ -366,9 +443,9 @@ class TimberbornAPI:
         data = self.list_levers()
 
         for lever_name, info_dict in self._lever_listeners.items():
-            lever_data = data.get(lever_name)
+            lever = data.get(lever_name)
 
-            current_state = lever_data["state"]
+            current_state = lever.state if lever else None
 
             if current_state is None:
                 continue
@@ -428,8 +505,9 @@ class TimberbornAPI:
 
         For each adapter listener:
           - Calls all registered functions with:
+             (adapter_name = name of the adapter
               current_state = current API state
-              prev_state = previously recorded state, or None if not yet set
+              prev_state = previously recorded state, or None if not yet set)
           - Updates the internal prev_state to the current state
 
         Notes:
@@ -444,7 +522,7 @@ class TimberbornAPI:
             current_state = current_adapters.get(adapter_name)
 
             if current_state is None:
-                # Adapter not found; skip
+                # Adapter not found, skip
                 continue
 
             # Call all registered functions
@@ -483,20 +561,20 @@ class TimberbornAPI:
         log.setLevel(logging.ERROR)
         app.logger.setLevel(logging.ERROR)
 
-        @app.route("/on/<adapter_name>", methods=["GET"])
+        @app.route("/on/<adapter_name>", methods=["GET", "POST"])
         def on_adapter(adapter_name):
             adapter_name = urllib.parse.unquote(adapter_name)
             self._trigger_adapter(adapter_name, True)
             return "OK", 200
 
-        @app.route("/off/<adapter_name>", methods=["GET"])
+        @app.route("/off/<adapter_name>", methods=["GET", "POST"])
         def off_adapter(adapter_name):
             adapter_name = urllib.parse.unquote(adapter_name)
             self._trigger_adapter(adapter_name, False)
             return "OK", 200
 
         def run():
-            app.run(port=self.adapter_port, debug=False, use_reloader=False)
+            app.run(port=self.adapter_port, debug=False, use_reloader=False, threaded=True)
 
         thread = Thread(target=run, daemon=True)
         thread.start()
@@ -511,12 +589,12 @@ class TimberbornAPI:
         if isinstance(arg, bool):
             return arg
         if isinstance(arg, str):
-            return self.get_adapter(arg)['state']
-        if isinstance(arg, Lever):
-            return self.get_lever(arg.name)['state']
-        if isinstance(arg, Adapter):
-            return self.get_adapter(arg.name)['state']
-        raise TypeError(f"Unknown condition type {arg}")
+            return self.get_adapter(arg).state
+        if isinstance(arg, TimberbornAPI.Lever):
+            return self.get_lever(arg.name).state
+        if isinstance(arg, TimberbornAPI.Adapter):
+            return self.get_adapter(arg.name).state
+        raise TypeError(f"Unsupported condition item type: {type(arg)}")
 
     def not_(self, *args):
         """
@@ -580,7 +658,3 @@ class TimberbornAPI:
         """
         results = [self._turn_to_bool(arg) for arg in args]
         return sum(results) % 2 == 1
-
-# Short aliases for convenience
-L = Lever
-A = Adapter
