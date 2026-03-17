@@ -2,7 +2,7 @@ name: Test TimberbornAPI
 
 on:
   push:
-    branches: [ main, "feature/*", "dev" ]
+    branches: [ main, "feature/**", dev ]
   pull_request:
     branches: [ main ]
 
@@ -11,28 +11,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout code
       - uses: actions/checkout@v3
 
+      # 2. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
+          python-version: "3.10"
 
+      # 3. Install dependencies from pyproject.toml
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install .
 
-      # Optional: free port 8080
+      # 4. Kill any process on port 8080
       - name: Kill any process on port 8080
         run: |
           sudo fuser -k 8080/tcp || true
 
+      # 5. Start fake Timberborn server
       - name: Start fake Timberborn server
         run: |
-          python tests/fake_server.py &
-          sleep 5  # Give server enough time to bind to 8080
+          nohup python tests/fake_server.py > server.log 2>&1 &
+      
+      # 6. Wait for server to be ready
+      - name: Wait for server
+        run: |
+          for i in {1..10}; do
+            nc -z localhost 8080 && exit 0
+            sleep 1
+          done
+          echo "Server failed to start"
+          exit 1
 
+      # 7. Run tests
       - name: Run tests
         run: |
-          python -m unittest discover -s tests
+          python -m unittest discover -s tests -v
