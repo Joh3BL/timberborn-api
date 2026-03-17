@@ -20,8 +20,8 @@ import requests
 
 ConditionItem = Union[bool, str, "TimberbornAPI.Lever", "TimberbornAPI.Adapter"]
 
-# pylint: disable=R0913,R0917
-# pylint: disable=R0902,W0212
+# pylint: disable=R0902,R0903,R0913,R0917
+# pylint: disable=W0212
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
 
