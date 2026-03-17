@@ -65,36 +65,31 @@ class TimberbornAPI:
         to switch on and off levers and set their color.
         Result when get_lever or list_levers is called or when L() is used.
         """
-        def __init__(self, api, name, state, spring_return):
+        def __init__(self, api, name):
             self._api = api
             self.name = name
-            self.state = state
-            self.spring_return = spring_return
 
         @property
         def state(self):
             """Current state of the lever (True = on, False = off)."""
-            return self._state
+            return self._get_lever_dict(self.name)['state']
 
         @state.setter
         def state(self, value):
             """Set the lever state via the API when assigned to."""
-            if hasattr(self, "_state") and self._state == value:
-                return  # No change, do nothing
-            self._state = value
             self._api.set_lever(self.name, value)
+        
+        @property
+        def spring_return(self):
+            return self._get_lever_dict(self.name)['state']
 
         def switch_on(self):
             """Switch the lever on via the API."""
-            if not self.state or self.spring_return:
-                self._api.set_lever(self.name, True)
-                self.state = True
+            self._api.set_lever(self.name, True)
 
         def switch_off(self):
             """Switch the lever off via the API."""
-            if self.state or self.spring_return:
-                self._api.set_lever(self.name, False)
-                self.state = False
+            self._api.set_lever(self.name, False)   
 
         def toggle(self):
             """Toggle the lever state via the API."""
@@ -116,10 +111,13 @@ class TimberbornAPI:
         Object that indicate a name is an adapter.
         Result when get_adapter or list_adapters is called or when A() is used.
         """
-        def __init__(self, api, name, state):
+        def __init__(self, api, name):
             self._api = api
             self.name = name
-            self.state = state
+        
+        @property
+        def state(self):
+            return self._api._get_adapter_dict(self.name)['state']
 
         def __str__(self):
             return self.name
@@ -178,7 +176,18 @@ class TimberbornAPI:
 
     # Lever methods
     def _get_lever_dict(self, name):
-        """Helper to get lever as a dict, used internally"""
+        """
+        Internal helper to get cached or fresh response from the api.
+
+        Returns:
+            dict: Dictionary of properties, like for example:
+                {
+                    'name': 'lever 1',
+                    'state': True,
+                    'springReturn': False
+                }
+        """
+
         name_enc = self._encode_name(name)
         lever = self._lever_cache.get(name)
 
@@ -211,9 +220,7 @@ class TimberbornAPI:
 
         return self.Lever(
             api=self,
-            name=lever_dict["name"],
-            state=lever_dict["state"],
-            spring_return=lever_dict["springReturn"]
+            name=lever_dict["name"]
         )
 
     def list_levers(self):
@@ -241,9 +248,7 @@ class TimberbornAPI:
             self._lever_cache[lever["name"]] = lever_copy
             result[lever["name"]] = self.Lever(
                 api=self,
-                name=lever["name"],
-                state=lever["state"],
-                spring_return=lever["springReturn"]
+                name=lever["name"]
             )
 
         return result
@@ -263,7 +268,7 @@ class TimberbornAPI:
             RuntimeError: If the lever does not exist or the request fails.
         """
         lever = self._get_lever_dict(name)
-        if lever.get("state") == state:
+        if lever.get("state") == state and not lever.get('springReturn'):
             return lever
 
         name_enc = self._encode_name(name)
@@ -277,9 +282,7 @@ class TimberbornAPI:
         returned = self._store(self._lever_cache, lever)
         return self.Lever(
             api=self,
-            name=name,
-            state=returned["state"],
-            spring_return=returned["springReturn"]
+            name=name
         )
 
     def set_color(self, name, color_hex: str):
@@ -308,6 +311,17 @@ class TimberbornAPI:
 
     # Adapter methods
     def _get_adapter_dict(self, name):
+        """
+        Internal helper to get cached or fresh response from the api.
+
+        Returns:
+            dict: Dictionary of properties, like for example:
+                {
+                    'name': 'adapter 1',
+                    'state': True,
+                }
+        """
+
         name_enc = self._encode_name(name)
         adapter = self._adapter_cache.get(name)
 
@@ -340,8 +354,7 @@ class TimberbornAPI:
 
         return self.Adapter(
             api=self,
-            name=adapter_dict["name"],
-            state=adapter_dict["state"]
+            name=adapter_dict["name"]
         )
 
     def list_adapters(self):
