@@ -3,6 +3,7 @@
 # but it should be good enough for basic testing of the client. It will even enforce
 # better practices for the client by using GET and POST requests differently.
 from flask import Flask, jsonify
+import copy
 
 app = Flask(__name__)
 
@@ -25,8 +26,8 @@ ADAPTERS = default_adapters.copy()
 def reset():
     global LEVERS
     global ADAPTERS
-    LEVERS = default_levers.copy()
-    ADAPTERS = default_adapters.copy()
+    LEVERS = copy.deepcopy(default_levers)
+    ADAPTERS = copy.deepcopy(default_adapters)
     return "Reset done", 200
 
 @app.route("/api/levers", methods=["GET"])
