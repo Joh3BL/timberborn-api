@@ -24,41 +24,100 @@ ConditionItem = Union[bool, str, "TimberbornAPI.Lever", "TimberbornAPI.Adapter"]
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
 
-    def __init__(
-            self,
-            base_url="http://localhost:8080/api",
-            adapter_listener_port=8081,
-            cache_ttl=8,
-            on_any_change=None):
+    class Config:
+        """
+        Timberborn API Config object for initialization: TimberbornAPI(TimberbornAPI.Config()).
+        See .Config().__doc__ for arguments.
+        """
+        def __init__(
+                self,
+                base_url: str = "http://localhost:8080/api",
+                adapter_listener_port: int = 8081,
+                cache_ttl: float = 8,
+                on_any_change=None,
+                start_adapter_server: bool = True,
+                start_lever_thread: bool = False,
+                lever_thread_interval_ms: float = 5000
+                ):
+            """
+            Args:
+                base_url (str) (defaults to http://localhost:8080/api): 
+                    Base URL for the Timberborn API.
+                cache_ttl (float) (defaults to 8): 
+                    Time-to-live for cached items in seconds.
+                adapter_listener_port (int) (defaults to 8081): 
+                    Port to listen for adapter change events. This should match 
+                    the port configured in Timberborn for sending adapter updates.
+                on_any_change (func): 
+                    Called like a listener whenever any value has changed, before other listeners.
+                    Called as (adapter_name, current_state, prev_state). 
+                    Can be used to log changes. If it is None, it won't call anything.
+                start_adapter_server (bool) (defaults to True):
+                    Boolean for if the API should start the adapter Flask server, 
+                    needs to be started for listeners to work. Runs in seperate thread,
+                    so that the program can still run other stuff.
+                      If you want to use this, you need to tick the two boxes in the adapter window
+                    in Timberborn, to send a GET request when the state changes.
+                start_lever_thread (bool) (defaults to False):
+                    Starts a seperate thread with the lever listener loop, 
+                    means that the program isn't taken up. 
+                      For listeners to work, you either need to activate this, or run
+                    api.activate_lever_listener_loop() which does the same,
+                    but that takes up the main thread.
+                lever_thread_interval_ms (float) (defaults to 5000):
+                    Amount of milliseconds each tick wil take up in the lever_thread. Does nothing
+                    if you don't set the previous value to True. The higher it is, the longer
+                    delay between ticks, but the program will run faster.
+            """
+            
+            self.base_url = base_url.rstrip("/")
+            self.adapter_port = adapter_listener_port
+            self.cache_ttl = cache_ttl
+            self.start_adapter_server = start_adapter_server
+            self.start_lever_thread = start_lever_thread
+            self.lever_thread_interval_ms = lever_thread_interval_ms
+
+            if on_any_change is not None and not callable(on_any_change):
+                raise TypeError(f"on_any_change must be callable, got {type(on_any_change)}")
+            self.on_any_change = on_any_change
+
+    def __init__(self, config=None):
         """
         Initialize TimberbornAPI client.
 
         Args:
-            base_url (str) (defaults to http://localhost:8080/api): 
-                Base URL for the Timberborn API.
-            cache_ttl (float) (defaults to 8): 
-                Time-to-live for cached items in seconds.
-            adapter_listener_port (int) (defaults to 8081): 
-                Port to listen for adapter change events. 
-                This should match the port configured in Timberborn for sending adapter updates.
-            on_any_change (func): 
-                Called like a listener whenever any value has changed, before all other listeners.
-                Called as (adapter_name, current_state, prev_state). Can be used to log changes.
-                If it is None, it won't call anything.
+            config = TimberbornAPI Config object.
         """
-        self.base_url = base_url.rstrip("/")
-        self.adapter_port = adapter_listener_port
-        self.cache_ttl = cache_ttl
-        self.on_any_change = on_any_change
+        if config is not None and not isinstance(config, TimberbornAPI.Config):
+            raise TypeError("config must be a TImberbornAPI.Config() object")
+        
+        if config is None:
+            config = TimberbornAPI.Config()
+        self._config = config
 
+        # Initialization Arguments
+        self.base_url = config.base_url
+        self.adapter_port = config.adapter_port
+        self.cache_ttl = config.cache_ttl
+        self.on_any_change = config.on_any_change
+
+        # Threading and requests
         self._lock = Lock()
+        self._session = requests.Session()
 
+        # Private info dicts
         self._lever_cache = {}
         self._adapter_cache = {}
         self._lever_listeners = {}
         self._adapter_listeners = {}
 
-        self._start_adapter_server() # Start the background Flask server for adapters
+        # Initialization of functions
+        if config.start_adapter_server:
+            self._start_adapter_server()
+        if config.start_lever_thread:
+            self._start_lever_listener_thread(
+                interval_ms=config.lever_thread_interval_ms
+                )
 
     # Wrapper classes for levers and adapters
     class Lever:
@@ -191,12 +250,13 @@ class TimberbornAPI:
         """
 
         name_enc = self._encode_name(name)
-        lever = self._lever_cache.get(name)
+        with self._lock:
+            lever = self._lever_cache.get(name)
 
         if lever and self._is_valid(lever):
             return lever.copy()
 
-        r = requests.get(f"{self.base_url}/levers/{name_enc}", timeout=5)
+        r = self._session.get(f"{self.base_url}/levers/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -238,7 +298,7 @@ class TimberbornAPI:
                     "lever 2": Lever(name="lever 2", state=False, spring_return=True)
                 }
         """
-        r = requests.get(f"{self.base_url}/levers", timeout=5)
+        r = self._session.get(f"{self.base_url}/levers", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -279,7 +339,7 @@ class TimberbornAPI:
         name_enc = self._encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
-        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}", timeout=5)
+        r = self._session.post(f"{self.base_url}/{endpoint}/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -308,7 +368,7 @@ class TimberbornAPI:
             color_hex = color_hex[1:]
 
         name_enc = self._encode_name(name)
-        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}", timeout=5)
+        r = self._session.post(f"{self.base_url}/color/{name_enc}/{color_hex}", timeout=5)
 
         self._check_response(r)
 
@@ -333,7 +393,7 @@ class TimberbornAPI:
         if adapter and self._is_valid(adapter):
             return adapter.copy()
 
-        r = requests.get(f"{self.base_url}/adapters/{name_enc}", timeout=5)
+        r = self._session.get(f"{self.base_url}/adapters/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -375,7 +435,7 @@ class TimberbornAPI:
                     "adapter 2": Adapter(name="adapter 2", state=False)
                 }
         """
-        r = requests.get(f"{self.base_url}/adapters", timeout=5)
+        r = self._session.get(f"{self.base_url}/adapters", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -598,8 +658,27 @@ class TimberbornAPI:
         def run():
             app.run(port=self.adapter_port, debug=False, use_reloader=False, threaded=True)
 
-        thread = Thread(target=run, daemon=True)
-        thread.start()
+        t = Thread(target=run, daemon=True)
+        t.start()
+        self._adapter_listener_thread = t
+
+    def _start_lever_listener_thread(self, interval_ms=5000):
+        """Start lever listener loop in daemon thread"""
+        def loop():
+            interval = interval_ms / 1000
+            next_tick_time = time.monotonic()
+
+            while True:
+                self.check_lever_listeners()
+
+                next_tick_time += interval
+                sleep_time = next_tick_time - time.monotonic()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+        
+        t = Thread(target=loop, daemon=True)
+        t.start()
+        self._lever_listener_thread = t
 
     # Logic modules
     def _turn_to_bool(self, arg: ConditionItem) -> bool:
@@ -675,5 +754,8 @@ class TimberbornAPI:
                 string that is an adapter name
                 A() wrapper (adapter)
                 L() wrapper (lever)
+        
+        Notes:
+            - If it has one argument, it will behave like and_ and or_, just return the same value
         """
         return sum(self._turn_to_bool(arg) for arg in args) % 2 == 1
