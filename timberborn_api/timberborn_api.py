@@ -68,7 +68,7 @@ class TimberbornAPI:
         def __init__(self, api, name, state, spring_return):
             self._api = api
             self.name = name
-            self.state = state
+            self._state = state
             self.spring_return = spring_return
 
         @property
