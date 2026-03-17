@@ -58,10 +58,14 @@ class TestListenersTimberbornAPI(unittest.TestCase):
         lever.switch_off()
         self.api.check_lever_listeners()
         time.sleep(0.1)
-
-        # Both callbacks should have fired
-        self.assertEqual(results1[-1], (False, True))
-        self.assertEqual(results2[-1], (False, True))
+        # First call: prev_state is None
+        self.assertEqual(results1[-1], (False, None))
+        
+        # Toggle back ON
+        lever.switch_on()
+        self.api.check_lever_listeners()
+        time.sleep(0.1)
+        self.assertEqual(results1[-1], (True, False))  # now prev_state is correct
 
     def test_adapter_listener_trigger(self):
         callback_results = []
