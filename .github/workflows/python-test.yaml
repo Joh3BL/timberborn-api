@@ -5,7 +5,6 @@ on:
     branches: [ main, "feature/*", "dev" ]
   pull_request:
     branches: [ main ]
-name: Python Tests
 
 jobs:
   test:
