@@ -30,7 +30,7 @@ jobs:
       - name: Start fake Timberborn server
         run: |
           python tests/fake_server.py &
-          sleep 2
+          sleep 5
 
       - name: Run basic unittests
         run: |

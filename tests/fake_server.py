@@ -23,6 +23,8 @@ ADAPTERS = default_adapter.copy()
 
 @app.route("/test/reset", methods=["POST"])
 def reset():
+    global LEVERS
+    global ADAPTERS
     LEVERS = default_levers.copy()
     ADAPTERS = default_adapters.copy()
 

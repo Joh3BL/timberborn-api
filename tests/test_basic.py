@@ -5,8 +5,9 @@ import requests
 class TestTimberbornAPI(unittest.TestCase):
     def setUp(self):
         # Start API object after fake server is up
-        self.api = TimberbornAPI()
-        requests.get("http://localhost:8080/test/reset")  # Reset fake server values, just in case
+        config = TimberbornAPI.Config(start_adapter_server=False)
+        self.api = TimberbornAPI(Config)
+        requests.post("http://localhost:8080/test/reset")  # Reset fake server values, just in case
 
     def test_list_levers(self):
         levers = self.api.list_levers()
