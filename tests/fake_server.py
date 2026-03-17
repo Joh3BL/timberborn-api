@@ -7,15 +7,24 @@ from flask import Flask, jsonify
 app = Flask(__name__)
 
 # Example data
-LEVERS = {
+default_levers = {
     "lever 1": {"name": "lever 1", "state": True, "springReturn": False},
     "lever 2": {"name": "lever 2", "state": False, "springReturn": False}
 }
 
-ADAPTERS = {
+default_adapters = {
     "adapter 1": {"name": "adapter 1", "state": True},
     "adapter 2": {"name": "adapter 2", "state": False}
 }
+
+LEVERS = default_levers.copy()
+
+ADAPTERS = default_adapter.copy()
+
+@app.route("/test/reset", methods=["POST"])
+def reset():
+    LEVERS = default_levers.copy()
+    ADAPTERS = default_adapters.copy()
 
 @app.route("/api/levers", methods=["GET"])
 def list_levers():
