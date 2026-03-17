@@ -27,6 +27,7 @@ def reset():
     global ADAPTERS
     LEVERS = default_levers.copy()
     ADAPTERS = default_adapters.copy()
+    return "Reset done", 200
 
 @app.route("/api/levers", methods=["GET"])
 def list_levers():
