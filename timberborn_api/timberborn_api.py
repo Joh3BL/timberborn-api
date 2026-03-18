@@ -476,12 +476,12 @@ class TimberbornAPI:
             # Output: State of Lever 1 changed from False to True
         
         Notes:
-            - Lever listeners are only triggered by changes detected in check_listeners(), 
+            - Lever listeners are only triggered by changes detected in check_lever_listeners(), 
               which must be called, or use activate_lever_listener_loop().
             - Listeners are called in the order they were registered for a given lever.
             - You can call register_lever_listener multiple times for the same lever to register 
               multiple functions, and they will all be called when the state changes.
-            - If the lever's state changes multiple times between calls to check_listeners(),
+            - If the lever's state changes multiple times between calls to check_lever_listeners(),
               the listener functions won't be called if the final state 
               is the same as the initial state.
             - prev_state will be None for the first call to the listener, 
@@ -545,7 +545,7 @@ class TimberbornAPI:
 
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
-        Initiates a while (not exit_condition(tick_count)) loop, that calls .check_listeners().
+        Initiates a while (not exit_condition(tick_count)) loop, that calls .check_lever_listeners().
         Exits when exit_condition returns True.
 
         Args:
@@ -558,7 +558,7 @@ class TimberbornAPI:
         
         Notes:
             - This function may be difficult to exit and it's intend as a shortcut
-              for users who want to use listeners without having to call check_listeners().
+              for users who want to use listeners without having to call check_lever_listeners().
             - If you want to exit the loop, provide an exit_condition(ticks_called_so_far) that
               at some point returns a True value, or you can raise KeyboardInterrupt.
             - You can also press Ctrl+C on your keyboard to exit the loop cleanly, this will return. 
