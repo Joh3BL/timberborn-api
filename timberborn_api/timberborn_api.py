@@ -545,8 +545,8 @@ class TimberbornAPI:
 
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
-        Initiates a while (not exit_condition(tick_count)) loop, that calls .check_lever_listeners().
-        Exits when exit_condition returns True.
+        Initiates a while (not exit_condition(tick_count)) loop, that calls 
+        .check_lever_listeners(). Exits when exit_condition returns True.
 
         Args:
             exit_condition (func) (defaults to lambda ticks: False):
