@@ -7,7 +7,7 @@ Authors:
 
 """
 
-from threading import Thread
+from threading import Thread, Lock
 from typing import Union
 import urllib.parse
 import inspect
@@ -20,43 +20,105 @@ import requests
 
 ConditionItem = Union[bool, str, "TimberbornAPI.Lever", "TimberbornAPI.Adapter"]
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=R0902,R0903,R0913,R0917
+# pylint: disable=W0212
 class TimberbornAPI:
     """Timberborn API client with caching, listeners, and logic modules."""
 
-    def __init__(
-            self,
-            base_url="http://localhost:8080/api",
-            adapter_listener_port=8081,
-            cache_ttl=8,
-            on_any_change=None):
+    class Config:
+        """
+        Timberborn API Config object for initialization: TimberbornAPI(TimberbornAPI.Config()).
+        See .Config().__doc__ for arguments.
+        """
+        def __init__(
+                self,
+                base_url: str = "http://localhost:8080/api",
+                adapter_listener_port: int = 8081,
+                cache_ttl: float = 8,
+                on_any_change=None,
+                start_adapter_server: bool = True,
+                start_lever_thread: bool = False,
+                lever_thread_interval_ms: float = 5000
+                ):
+            """
+            Args:
+                base_url (str) (defaults to http://localhost:8080/api): 
+                    Base URL for the Timberborn API.
+                cache_ttl (float) (defaults to 8): 
+                    Time-to-live for cached items in seconds.
+                adapter_listener_port (int) (defaults to 8081): 
+                    Port to listen for adapter change events. This should match 
+                    the port configured in Timberborn for sending adapter updates.
+                on_any_change (func): 
+                    Called like a listener whenever any value has changed, before other listeners.
+                    Called as (adapter_name, current_state, prev_state). 
+                    Can be used to log changes. If it is None, it won't call anything.
+                start_adapter_server (bool) (defaults to True):
+                    Boolean for if the API should start the adapter Flask server, 
+                    needs to be started for listeners to work. Runs in seperate thread,
+                    so that the program can still run other stuff.
+                      If you want to use this, you need to tick the two boxes in the adapter window
+                    in Timberborn, to send a GET request when the state changes.
+                start_lever_thread (bool) (defaults to False):
+                    Starts a seperate thread with the lever listener loop, 
+                    means that the program isn't taken up. 
+                      For listeners to work, you either need to activate this, or run
+                    api.activate_lever_listener_loop() which does the same,
+                    but that takes up the main thread.
+                lever_thread_interval_ms (float) (defaults to 5000):
+                    Amount of milliseconds each tick wil take up in the lever_thread. Does nothing
+                    if you don't set the previous value to True. The higher it is, the longer
+                    delay between ticks, but the program will run faster.
+            """
+
+            self.base_url = base_url.rstrip("/")
+            self.adapter_port = adapter_listener_port
+            self.cache_ttl = cache_ttl
+            self.start_adapter_server = start_adapter_server
+            self.start_lever_thread = start_lever_thread
+            self.lever_thread_interval_ms = lever_thread_interval_ms
+
+            if on_any_change is not None and not callable(on_any_change):
+                raise TypeError(f"on_any_change must be callable, got {type(on_any_change)}")
+            self.on_any_change = on_any_change
+
+    def __init__(self, config=None):
         """
         Initialize TimberbornAPI client.
 
         Args:
-            base_url (str) (defaults to http://localhost:8080/api): 
-                Base URL for the Timberborn API.
-            cache_ttl (float) (defaults to 8): 
-                Time-to-live for cached items in seconds.
-            adapter_listener_port (int) (defaults to 8081): 
-                Port to listen for adapter change events. 
-                This should match the port configured in Timberborn for sending adapter updates.
-            on_any_change (func): 
-                Called like a listener whenever any value has changed, before all other listeners.
-                Called as (adapter_name, current_state, prev_state). Can be used to log changes.
-                If it is None, it won't call anything.
+            config = TimberbornAPI Config object.
         """
-        self.base_url = base_url.rstrip("/")
-        self.adapter_port = adapter_listener_port
-        self.cache_ttl = cache_ttl
-        self.on_any_change = on_any_change
+        if config is not None and not isinstance(config, TimberbornAPI.Config):
+            raise TypeError("config must be a TImberbornAPI.Config() object")
 
+        if config is None:
+            config = TimberbornAPI.Config()
+        self._config = config
+
+        # Initialization Arguments
+        self.base_url = config.base_url
+        self.adapter_port = config.adapter_port
+        self.cache_ttl = config.cache_ttl
+        self.on_any_change = config.on_any_change
+
+        # Threading and requests
+        self._lock = Lock()
+        self._session = requests.Session()
+
+        # Private info dicts
         self._lever_cache = {}
         self._adapter_cache = {}
         self._lever_listeners = {}
         self._adapter_listeners = {}
 
-        self._start_adapter_server() # Start the background Flask server for adapters
+        # Initialization of functions
+        if config.start_adapter_server:
+            self._start_adapter_server()
+        if config.start_lever_thread:
+            self._start_lever_listener_thread(
+                interval_ms=config.lever_thread_interval_ms
+                )
 
     # Wrapper classes for levers and adapters
     class Lever:
@@ -65,67 +127,66 @@ class TimberbornAPI:
         to switch on and off levers and set their color.
         Result when get_lever or list_levers is called or when L() is used.
         """
-        def __init__(self, api, name, state, spring_return):
+        def __init__(self, api, name):
             self._api = api
             self.name = name
-            self._state = state
-            self.spring_return = spring_return
 
         @property
         def state(self):
             """Current state of the lever (True = on, False = off)."""
-            return self._state
+            return self._api._get_lever_dict(self.name)['state']
 
         @state.setter
         def state(self, value):
             """Set the lever state via the API when assigned to."""
-            if hasattr(self, "_state") and self._state == value:
-                return  # No change, do nothing
-            self._state = value
             self._api.set_lever(self.name, value)
+
+        @property
+        def spring_return(self):
+            """Returns the Lever's spring_return state"""
+            return self._api._get_lever_dict(self.name)['springReturn']
 
         def switch_on(self):
             """Switch the lever on via the API."""
-            if not self.state or self.spring_return:
-                self._api.set_lever(self.name, True)
-                self.state = True
+            self._api.set_lever(self.name, True)
 
         def switch_off(self):
             """Switch the lever off via the API."""
-            if self.state or self.spring_return:
-                self._api.set_lever(self.name, False)
-                self.state = False
+            self._api.set_lever(self.name, False)
 
         def toggle(self):
             """Toggle the lever state via the API."""
-            self._api.set_lever(self.name, not self.state)
             self.state = not self.state
 
         def set_color(self, color_hex: str):
             """Set the lever color via the API."""
-            self._api.set_color(self.name, color_hex)
+            return self._api.set_color(self.name, color_hex)
 
         def __str__(self):
             return self.name
 
         def __repr__(self):
-            return f"L({self.name}, state={self.state}, spring_return={self.spring_return})"
+            return f"L({self.name})"
 
     class Adapter:
         """
         Object that indicate a name is an adapter.
         Result when get_adapter or list_adapters is called or when A() is used.
         """
-        def __init__(self, api, name, state):
+        def __init__(self, api, name):
             self._api = api
             self.name = name
-            self.state = state
+
+        @property
+        def state(self):
+            """Returns the Adapter's state"""
+            return self._api._get_adapter_dict(self.name)['state']
 
         def __str__(self):
             return self.name
 
         def __repr__(self):
-            return f"A({self.name}, state={self.state})"
+            return f"A({self.name})"
 
     # Convenience wrappers for users
     def L(self, name):  # pylint: disable=C0103
@@ -166,7 +227,8 @@ class TimberbornAPI:
     def _store(self, cache, obj):
         obj = obj.copy()
         obj["_ts"] = time.monotonic()
-        cache[obj["name"]] = obj
+        with self._lock:
+            cache[obj["name"]] = obj
         return obj
 
     @staticmethod
@@ -178,14 +240,26 @@ class TimberbornAPI:
 
     # Lever methods
     def _get_lever_dict(self, name):
-        """Helper to get lever as a dict, used internally"""
+        """
+        Internal helper to get cached or fresh response from the api.
+
+        Returns:
+            dict: Dictionary of properties, like for example:
+                {
+                    'name': 'lever 1',
+                    'state': True,
+                    'springReturn': False
+                }
+        """
+
         name_enc = self._encode_name(name)
-        lever = self._lever_cache.get(name)
+        with self._lock:
+            lever = self._lever_cache.get(name)
 
         if lever and self._is_valid(lever):
-            return lever
+            return lever.copy()
 
-        r = requests.get(f"{self.base_url}/levers/{name_enc}")  # pylint: disable=missing-timeout
+        r = self._session.get(f"{self.base_url}/levers/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -211,9 +285,7 @@ class TimberbornAPI:
 
         return self.Lever(
             api=self,
-            name=lever_dict["name"],
-            state=lever_dict["state"],
-            spring_return=lever_dict["springReturn"]
+            name=lever_dict["name"]
         )
 
     def list_levers(self):
@@ -229,7 +301,7 @@ class TimberbornAPI:
                     "lever 2": Lever(name="lever 2", state=False, spring_return=True)
                 }
         """
-        r = requests.get(f"{self.base_url}/levers")  # pylint: disable=missing-timeout
+        r = self._session.get(f"{self.base_url}/levers", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -238,12 +310,13 @@ class TimberbornAPI:
         for lever in data:
             lever_copy = lever.copy()
             lever_copy["_ts"] = now
-            self._lever_cache[lever["name"]] = lever_copy
+
+            with self._lock:
+                self._lever_cache[lever["name"]] = lever_copy
+
             result[lever["name"]] = self.Lever(
                 api=self,
-                name=lever["name"],
-                state=lever["state"],
-                spring_return=lever["springReturn"]
+                name=lever["name"]
             )
 
         return result
@@ -263,23 +336,21 @@ class TimberbornAPI:
             RuntimeError: If the lever does not exist or the request fails.
         """
         lever = self._get_lever_dict(name)
-        if lever.get("state") == state:
-            return lever
+        if lever.get("state") == state and not lever.get('springReturn'):
+            return self.Lever(api=self, name=name)
 
         name_enc = self._encode_name(name)
         endpoint = "switch-on" if state else "switch-off"
 
-        r = requests.post(f"{self.base_url}/{endpoint}/{name_enc}")  # pylint: disable=missing-timeout
+        r = self._session.post(f"{self.base_url}/{endpoint}/{name_enc}", timeout=5)
 
         self._check_response(r)
 
         lever["state"] = state
-        returned = self._store(self._lever_cache, lever)
+        self._store(self._lever_cache, lever)
         return self.Lever(
             api=self,
-            name=name,
-            state=returned["state"],
-            spring_return=returned["springReturn"]
+            name=name
         )
 
     def set_color(self, name, color_hex: str):
@@ -291,7 +362,7 @@ class TimberbornAPI:
             color_hex (str): Color hex string in format "#RRGGBB" or "RRGGBB".
 
         Returns:
-            bool: True if the color was successfully set, e.i, the code executed.
+            bool: True if the color was successfully set, i.e. the code executed.
         
         Raises:
             RuntimeError: If the lever does not exist or the request fails.
@@ -300,7 +371,7 @@ class TimberbornAPI:
             color_hex = color_hex[1:]
 
         name_enc = self._encode_name(name)
-        r = requests.post(f"{self.base_url}/color/{name_enc}/{color_hex}")  # pylint: disable=missing-timeout
+        r = self._session.post(f"{self.base_url}/color/{name_enc}/{color_hex}", timeout=5)
 
         self._check_response(r)
 
@@ -308,13 +379,24 @@ class TimberbornAPI:
 
     # Adapter methods
     def _get_adapter_dict(self, name):
+        """
+        Internal helper to get cached or fresh response from the api.
+
+        Returns:
+            dict: Dictionary of properties, like for example:
+                {
+                    'name': 'adapter 1',
+                    'state': True,
+                }
+        """
+
         name_enc = self._encode_name(name)
         adapter = self._adapter_cache.get(name)
 
         if adapter and self._is_valid(adapter):
-            return adapter
+            return adapter.copy()
 
-        r = requests.get(f"{self.base_url}/adapters/{name_enc}")  # pylint: disable=missing-timeout
+        r = self._session.get(f"{self.base_url}/adapters/{name_enc}", timeout=5)
 
         self._check_response(r)
 
@@ -340,8 +422,7 @@ class TimberbornAPI:
 
         return self.Adapter(
             api=self,
-            name=adapter_dict["name"],
-            state=adapter_dict["state"]
+            name=adapter_dict["name"]
         )
 
     def list_adapters(self):
@@ -357,7 +438,7 @@ class TimberbornAPI:
                     "adapter 2": Adapter(name="adapter 2", state=False)
                 }
         """
-        r = requests.get(f"{self.base_url}/adapters")  # pylint: disable=missing-timeout
+        r = self._session.get(f"{self.base_url}/adapters", timeout=5)
         data = r.json()
 
         now = time.monotonic()
@@ -369,8 +450,7 @@ class TimberbornAPI:
             self._adapter_cache[adapter["name"]] = adapter_copy
             result[adapter["name"]] = self.Adapter(
                 api=self,
-                name=adapter["name"],
-                state=adapter["state"]
+                name=adapter["name"]
             )
 
         return result
@@ -396,22 +476,23 @@ class TimberbornAPI:
             # Output: State of Lever 1 changed from False to True
         
         Notes:
-            - Lever listeners are only triggered by changes detected in check_listeners(), 
+            - Lever listeners are only triggered by changes detected in check_lever_listeners(), 
               which must be called, or use activate_lever_listener_loop().
             - Listeners are called in the order they were registered for a given lever.
             - You can call register_lever_listener multiple times for the same lever to register 
               multiple functions, and they will all be called when the state changes.
-            - If the lever's state changes multiple times between calls to check_listeners(),
+            - If the lever's state changes multiple times between calls to check_lever_listeners(),
               the listener functions won't be called if the final state 
               is the same as the initial state.
             - prev_state will be None for the first call to the listener, 
               as prev_state is then unknown. 
         """
 
-        if name not in self._lever_listeners:
-            self._lever_listeners[name] = {'prev_state': None, 'funcs': [func]}
-        else:
-            self._lever_listeners[name]['funcs'].append(func)
+        with self._lock:
+            if name not in self._lever_listeners:
+                self._lever_listeners[name] = {'prev_state': None, 'funcs': [func]}
+            else:
+                self._lever_listeners[name]['funcs'].append(func)
 
     def register_adapter_listener(self, name, func):
         """
@@ -424,10 +505,11 @@ class TimberbornAPI:
         This one however works with Timberborns API adapter updates,
         so it might be more responsive, reliable and efficient than lever listeners.
         """
-        if name not in self._adapter_listeners:
-            self._adapter_listeners[name] = {'funcs': [func], 'prev_state': None}
-        else:
-            self._adapter_listeners[name]['funcs'].append(func)
+        with self._lock:
+            if name not in self._adapter_listeners:
+                self._adapter_listeners[name] = {'funcs': [func], 'prev_state': None}
+            else:
+                self._adapter_listeners[name]['funcs'].append(func)
 
     def check_lever_listeners(self):
         """
@@ -463,8 +545,8 @@ class TimberbornAPI:
 
     def activate_lever_listener_loop(self, exit_condition=lambda ticks: False, ms_per_tick=5000):
         """ 
-        Initiates a while (not exit_condition(tick_count)) loop, that calls .check_listeners().
-        Exits when exit_condition returns True.
+        Initiates a while (not exit_condition(tick_count)) loop, that calls 
+        .check_lever_listeners(). Exits when exit_condition returns True.
 
         Args:
             exit_condition (func) (defaults to lambda ticks: False):
@@ -476,7 +558,7 @@ class TimberbornAPI:
         
         Notes:
             - This function may be difficult to exit and it's intend as a shortcut
-              for users who want to use listeners without having to call check_listeners().
+              for users who want to use listeners without having to call check_lever_listeners().
             - If you want to exit the loop, provide an exit_condition(ticks_called_so_far) that
               at some point returns a True value, or you can raise KeyboardInterrupt.
             - You can also press Ctrl+C on your keyboard to exit the loop cleanly, this will return. 
@@ -519,7 +601,8 @@ class TimberbornAPI:
 
         for adapter_name, info_dict in self._adapter_listeners.items():
             prev_state = info_dict.get('prev_state', None)
-            current_state = current_adapters.get(adapter_name)
+            adapt_obj = current_adapters.get(adapter_name)
+            current_state = adapt_obj.state if adapt_obj else None
 
             if current_state is None:
                 # Adapter not found, skip
@@ -534,23 +617,24 @@ class TimberbornAPI:
 
     def _trigger_adapter(self, adapter_name, current_state):
         """Call registered callbacks when an adapter changes state."""
-        if adapter_name not in self._adapter_listeners:
-            return
+        with self._lock:
+            if adapter_name not in self._adapter_listeners:
+                return
 
-        prev_state = self._adapter_listeners[adapter_name]['prev_state']
-        if prev_state == current_state:
-            return
+            prev_state = self._adapter_listeners[adapter_name]['prev_state']
+            if prev_state == current_state:
+                return
+
+            funcs = list(self._adapter_listeners[adapter_name]['funcs'])
+            self._adapter_listeners[adapter_name]['prev_state'] = current_state
 
         # Optional global hook
         if self.on_any_change is not None:
             self.on_any_change(adapter_name, current_state, prev_state)
 
         # Call all registered functions
-        for func in self._adapter_listeners[adapter_name]['funcs']:
+        for func in funcs:
             func(adapter_name, current_state, prev_state)
-
-        # Update previous state
-        self._adapter_listeners[adapter_name]['prev_state'] = current_state
 
     def _start_adapter_server(self):
         """Starts a Flask server to listen for adapter GET requests."""
@@ -576,8 +660,27 @@ class TimberbornAPI:
         def run():
             app.run(port=self.adapter_port, debug=False, use_reloader=False, threaded=True)
 
-        thread = Thread(target=run, daemon=True)
-        thread.start()
+        t = Thread(target=run, daemon=True)
+        t.start()
+        self._adapter_listener_thread = t
+
+    def _start_lever_listener_thread(self, interval_ms=5000):
+        """Start lever listener loop in daemon thread"""
+        def loop():
+            interval = interval_ms / 1000
+            next_tick_time = time.monotonic()
+
+            while True:
+                self.check_lever_listeners()
+
+                next_tick_time += interval
+                sleep_time = next_tick_time - time.monotonic()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+
+        t = Thread(target=loop, daemon=True)
+        t.start()
+        self._lever_listener_thread = t
 
     # Logic modules
     def _turn_to_bool(self, arg: ConditionItem) -> bool:
@@ -591,9 +694,9 @@ class TimberbornAPI:
         if isinstance(arg, str):
             return self.get_adapter(arg).state
         if isinstance(arg, TimberbornAPI.Lever):
-            return self.get_lever(arg.name).state
+            return arg.state
         if isinstance(arg, TimberbornAPI.Adapter):
-            return self.get_adapter(arg.name).state
+            return arg.state
         raise TypeError(f"Unsupported condition item type: {type(arg)}")
 
     def not_(self, *args):
@@ -627,8 +730,7 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return all(results)
+        return all(self._turn_to_bool(arg) for arg in args)
 
     def or_(self, *args) -> bool:
         """
@@ -641,8 +743,7 @@ class TimberbornAPI:
                 A() wrapper (adapter)
                 L() wrapper (lever)
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return any(results)
+        return any(self._turn_to_bool(arg) for arg in args)
 
     def xor_(self, *args) -> bool:
         """
@@ -655,6 +756,8 @@ class TimberbornAPI:
                 string that is an adapter name
                 A() wrapper (adapter)
                 L() wrapper (lever)
+        
+        Notes:
+            - If it has one argument, it will behave like and_ and or_, just return the same value
         """
-        results = [self._turn_to_bool(arg) for arg in args]
-        return sum(results) % 2 == 1
+        return sum(self._turn_to_bool(arg) for arg in args) % 2 == 1

@@ -3,19 +3,32 @@
 # but it should be good enough for basic testing of the client. It will even enforce
 # better practices for the client by using GET and POST requests differently.
 from flask import Flask, jsonify
+import copy
 
 app = Flask(__name__)
 
 # Example data
-LEVERS = {
+default_levers = {
     "lever 1": {"name": "lever 1", "state": True, "springReturn": False},
     "lever 2": {"name": "lever 2", "state": False, "springReturn": False}
 }
 
-ADAPTERS = {
+default_adapters = {
     "adapter 1": {"name": "adapter 1", "state": True},
     "adapter 2": {"name": "adapter 2", "state": False}
 }
+
+LEVERS = default_levers.copy()
+
+ADAPTERS = default_adapters.copy()
+
+@app.route("/test/reset", methods=["POST"])
+def reset():
+    global LEVERS
+    global ADAPTERS
+    LEVERS = copy.deepcopy(default_levers)
+    ADAPTERS = copy.deepcopy(default_adapters)
+    return "Reset done", 200
 
 @app.route("/api/levers", methods=["GET"])
 def list_levers():
@@ -63,4 +76,4 @@ def set_color(name, color):
     return "HTTP Lever not found", 404
 
 if __name__ == "__main__":
-    app.run(port=8080)
+    app.run(port=8080, host="127.0.0.1")
