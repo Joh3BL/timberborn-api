@@ -8,18 +8,18 @@ api.set_lever("Lever 1", True)
 
 # Get lever state
 lever = api.get_lever("Lever 1")
-print(lever['state']) 
+print(lever.state) 
 # True as long as lever exists in timberborn
 
 # Set a lever color
-api.set_color("Lever 1", "fffff") # Sets to white using hex
+api.set_color("Lever 1", "#ffffff")  # Sets to white using hex
 
 # List all levers
 print(api.list_levers())
 
 # Get adapter state
 adapter = api.get_adapter("Adapter 1")
-print(adapter['state'])
+print(adapter.state)
 
 # List all adapters
 print(api.list_adapters())
