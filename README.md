@@ -150,44 +150,9 @@ The logic gate functions accept a **ConditionItem**, which is either a *boolean*
 
 `not_` returns **list** if *multiple args*, **boolean** if *single arg*. Use <b>*</b>api.not_(...) to unpack for gates like **NAND**/**NOR**.<!-- markdownlint-disable-line MD033 -->
 
-### OOP
+### Object Oriented Programming
 
-You can *(with the latest version)* use Object Oriented Programming with the levers. This means that you access the state *or spring_return* of a `Lever`/`Adapter` using `.state`. You can also use some OOP to access functions, like:
-
-```python
-#TODO: Add stuff here
-```
-
-## API Reference
-
-All methods are available with the `TimberbornAPI` class.
-Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** *(.\_\_doc\_\_)* on a method to access a description in detail on what it does. You should also be able to use `help(TimberbornAPI)` to access all the docstrings at once.
-
-### TimberbornAPI Methods
-
-- `get_lever(name: str)`
-- `set_lever(name: str, state: bool)`
-- `set_color(name: str, color_hex)`
-- `list_levers()`
-- `get_adapter(name: str)`
-- `list_adapters()`
-- `register_lever_listener(name: str, func: callable)`
-- `register_adapter_listener(name: str, func: callable)`
-- `check_lever_listeners()`
-- `activate_lever_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
-- `initialize_adapter_prev_states()`
-- `not_(*args)`
-- `and_(*args)`
-- `or_(*args)`
-- `xor_(*args)`
-
-For the logic gates, you need to use the wrappers, `api.L()` & `api.A()`, and they work the same as the objects created after *get_lever*/*adapter* or *list_lever*/*adapter* is used.
-
-### Lever and Adapter object methods
-
-Lever and adapter objects can both be created using the wrappers - `api.L()` & `api.A()` - and by using `api.get_lever`/`api.get_adapter`. The levers contain a *name* property, a settable *state* property and a regular spring_return property, that can only be accessed.
-
-**Example code:**
+You can also use Object Oriented Programming with the levers. This means that you access the state *or spring_return* of a `Lever`/`Adapter` using `.state`. You can also use some **OOP** to access functions, like:
 
 ```python
 from timberborn_api import TimberbornAPI
@@ -222,6 +187,37 @@ print(lever.state)
 print(lever.spring_return)
 print(adapter.state)
 ```
+
+## API Reference
+
+All methods are available with the `TimberbornAPI` class.
+Use `TimberbornAPI.methods()` to list all public methods, or use **docstrings** *(.\_\_doc\_\_)* on a method to access a description in detail on what it does. You should also be able to use `help(TimberbornAPI)` to access all the docstrings at once.
+
+### TimberbornAPI Methods
+
+- `get_lever(name: str)`
+- `set_lever(name: str, state: bool)`
+- `set_color(name: str, color_hex)`
+- `list_levers()`
+- `get_adapter(name: str)`
+- `list_adapters()`
+- `register_lever_listener(name: str, func: callable)`
+- `register_adapter_listener(name: str, func: callable)`
+- `check_lever_listeners()`
+- `activate_lever_listener_loop(exit_condition=lambda ticks: False, ms_per_tick=5000)`
+- `initialize_adapter_prev_states()`
+- `not_(*args)`
+- `and_(*args)`
+- `or_(*args)`
+- `xor_(*args)`
+
+For the logic gates, you need to use the wrappers, `api.L()` & `api.A()`, and they work the same as the objects created after *get_lever*/*adapter* or *list_lever*/*adapter* is used.
+
+### Lever and Adapter object methods
+
+Lever and adapter objects can both be created using the wrappers - `api.L()` & `api.A()` - and by using `api.get_lever`/`api.get_adapter`. The levers contain a *name* property, a settable *state* property and a regular spring_return property, that can only be accessed.
+
+See **Object Oriented Programming** for more information on how they work.
 
 ### Examples
 
